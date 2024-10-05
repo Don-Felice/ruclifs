@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 #[derive(Args, Debug)]
 pub struct RenameArgs {
     pub path: std::path::PathBuf,
-    #[arg(short = 'f', long = "filter")]
+    #[arg(short = 'f', long = "filter", default_value_t=String::from("*"))]
     pub filter_string: String,
     #[arg(short = 'p', long = "pattern")]
     pub pattern: String,
