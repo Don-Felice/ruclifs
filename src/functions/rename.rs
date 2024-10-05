@@ -1,8 +1,10 @@
 use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use glob::glob;
-use std::path::{Path, PathBuf};
+use regex::Regex;
+use std::path::{self, Path, PathBuf};
 
+const LINE: &str = "-------------------";
 #[derive(Args, Debug)]
 pub struct RenameArgs {
     pub path: std::path::PathBuf,
@@ -16,7 +18,7 @@ pub struct RenameArgs {
     pub recursive: bool,
 }
 
-pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) {
+pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf> {
     let full_glob_pattern = if recursive == true {
         PathBuf::from(dir).join("**")
     } else {
@@ -25,14 +27,11 @@ pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) {
 
     let full_glob_pattern = full_glob_pattern.join(glob_pattern);
 
-    println!("full glob: {}", full_glob_pattern.to_str().unwrap());
-
     let mut files: Vec<PathBuf> = Vec::new();
 
     for entry in glob(full_glob_pattern.to_str().unwrap()).expect("Failed to read glob pattern") {
         match entry {
             Ok(file_path) => {
-                println!("{:?}", file_path.display());
                 if file_path.is_file() {
                     files.push(file_path.clone())
                 }
@@ -40,10 +39,17 @@ pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) {
             Err(e) => println!("{:?}", e),
         }
     }
-    println!("Files only:");
-    for i in files {
-        println!("{}", i.to_str().unwrap())
-    }
+    files
+}
+
+fn rename_file(path_file: PathBuf, pattern: &str, substitute: &str) -> Result<(), std::io::Error> {
+    let file_name = path_file.file_name().unwrap().to_str().unwrap();
+    let re = Regex::new(pattern).unwrap();
+    let file_name_new = re.replace_all(file_name, substitute).to_string();
+    println!("{} -> {}", file_name, file_name_new);
+    let path_new = path_file.parent().unwrap().join(file_name_new);
+    let result = std::fs::rename(path_file, path_new);
+    result
 }
 
 pub fn rename(
@@ -54,5 +60,11 @@ pub fn rename(
     recursive: bool,
 ) {
     // get file to rename
-    get_files(path, filter_string, recursive);
+    let files = get_files(path, filter_string, recursive);
+    println!("Renaming {} files:", files.len());
+    println!("{}", LINE);
+    for file in files {
+        let _ = rename_file(file, pattern, substitute);
+    }
+    println!("{}", LINE);
 }
