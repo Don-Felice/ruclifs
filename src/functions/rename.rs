@@ -1,9 +1,9 @@
+use crate::functions::common::{color_substring, proceed_query, COLORS};
 use clap::builder::ArgAction;
-use clap::{Args, Parser, Subcommand};
+use clap::Args;
 use glob::glob;
 use regex::Regex;
-use std::io;
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 
 const LINE: &str = "-------------------";
 #[derive(Args, Debug)]
@@ -49,24 +49,11 @@ fn rename_file(path_file: &PathBuf, pattern: &str, substitute: &str, dry_run: bo
     let file_name = path_file.file_name().unwrap().to_str().unwrap();
     let re = Regex::new(pattern).unwrap();
     let file_name_new = re.replace_all(file_name, substitute).to_string();
-    println!("{} -> {}", file_name, file_name_new);
+    let file_name_color = color_substring(file_name, pattern, COLORS.get("cyan").unwrap(), true);
+    println!("{} -> {}", file_name_color, file_name_new);
     let path_new = path_file.parent().unwrap().join(file_name_new);
     if !dry_run {
         let _ = std::fs::rename(path_file, path_new);
-    }
-}
-
-fn proceed_query() {
-    println!("\nIf you wanna apply this renaming, give me a 'yes' or 'y' now:");
-    let mut input = String::new();
-    match io::stdin().read_line(&mut input) {
-        Ok(n) => {
-            if input.trim() != "yes" && input.trim() != "y" {
-                println!("Will abort here. See you soon!");
-                std::process::exit(0)
-            }
-        }
-        Err(error) => println!("error: {error}"),
     }
 }
 
@@ -88,7 +75,7 @@ pub fn rename(
         for file in &files {
             let _ = rename_file(file, pattern, substitute, true);
         }
-        proceed_query();
+        proceed_query("If you wanna apply this renaming, give me a 'yes' or 'y' now:");
     }
     println!("{}", LINE);
     for file in &files {

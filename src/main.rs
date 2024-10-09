@@ -1,6 +1,6 @@
 mod functions;
 
-use clap::{Args, Parser, Subcommand};
+use clap::{Parser, Subcommand};
 
 use crate::functions::rename::{rename, RenameArgs};
 use crate::functions::sed::SedArgs;
@@ -21,15 +21,11 @@ struct MainArgs {
 #[derive(Subcommand, Debug)]
 enum Commands {
     ///Renaming files and so on
-    Rename(RenameArgs),
+    Ren(RenameArgs),
     ///Awesome Streaming editor
     Sed(SedArgs),
     // copy(CopyArgs),
     // delete(DeleteArgs),
-}
-
-fn color_string(s: &str) -> String {
-    format!("\x1b[34;4m{s}\x1b[0m")
 }
 
 fn main() {
@@ -39,7 +35,7 @@ fn main() {
     let args = MainArgs::parse();
 
     match &args.cmd {
-        Commands::Rename(cmd_args) => {
+        Commands::Ren(cmd_args) => {
             println!("{:?}", cmd_args);
             rename(
                 &cmd_args.path,
@@ -53,25 +49,5 @@ fn main() {
         Commands::Sed(cmd_args) => {
             println!("{:?}", cmd_args)
         }
-        _ => {}
     }
-
-    // println!(
-    //     "path_file: {:?}, pattern: {:?}, replacement: {:?}",
-    //     args.path_file, args.pattern, args.replacement
-    // );
-
-    // let re = Regex::new(&args.pattern).unwrap();
-    // let highlight_pattern = format!("({})", &args.pattern);
-    // let hightlight_re = Regex::new(&highlight_pattern).unwrap();
-    // println!("highlight pattern: {:?}", highlight_pattern);
-
-    // let content: String = std::fs::read_to_string(&args.path_file).expect("could not read file");
-
-    // for line in content.lines() {
-    //     let result_line = re.replace_all(line, &args.replacement);
-    //     let highlight_line = hightlight_re.replace_all(line, color_string("$1"));
-    //     println!("{}", highlight_line);
-    //     println!("-> {}", result_line);
-    // }
 }
