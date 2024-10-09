@@ -47,6 +47,7 @@ fn main() {
                 &cmd_args.pattern,
                 &cmd_args.substitute,
                 cmd_args.recursive,
+                cmd_args.skip_preview,
             );
         }
         Commands::Sed(cmd_args) => {

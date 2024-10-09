@@ -2,6 +2,7 @@ use clap::builder::ArgAction;
 use clap::{Args, Parser, Subcommand};
 use glob::glob;
 use regex::Regex;
+use std::io;
 use std::path::{self, Path, PathBuf};
 
 const LINE: &str = "-------------------";
@@ -16,6 +17,8 @@ pub struct RenameArgs {
     pub substitute: String,
     #[arg(short = 'r', long = "recursive", action=ArgAction::SetTrue)]
     pub recursive: bool,
+    #[arg(short = 'S', long = "skip_preview", action=ArgAction::SetTrue)]
+    pub skip_preview: bool,
 }
 
 pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf> {
@@ -42,14 +45,29 @@ pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf
     files
 }
 
-fn rename_file(path_file: PathBuf, pattern: &str, substitute: &str) -> Result<(), std::io::Error> {
+fn rename_file(path_file: &PathBuf, pattern: &str, substitute: &str, dry_run: bool) {
     let file_name = path_file.file_name().unwrap().to_str().unwrap();
     let re = Regex::new(pattern).unwrap();
     let file_name_new = re.replace_all(file_name, substitute).to_string();
     println!("{} -> {}", file_name, file_name_new);
     let path_new = path_file.parent().unwrap().join(file_name_new);
-    let result = std::fs::rename(path_file, path_new);
-    result
+    if !dry_run {
+        let _ = std::fs::rename(path_file, path_new);
+    }
+}
+
+fn proceed_query() {
+    println!("\nIf you wanna apply this renaming, give me a 'yes' or 'y' now:");
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(n) => {
+            if input.trim() != "yes" && input.trim() != "y" {
+                println!("Will abort here. See you soon!");
+                std::process::exit(0)
+            }
+        }
+        Err(error) => println!("error: {error}"),
+    }
 }
 
 pub fn rename(
@@ -58,13 +76,23 @@ pub fn rename(
     pattern: &str,
     substitute: &str,
     recursive: bool,
+    skip_preview: bool,
 ) {
     // get file to rename
     let files = get_files(path, filter_string, recursive);
     println!("Renaming {} files:", files.len());
+
+    if !skip_preview {
+        println!("{}", LINE);
+        println!("Preview:");
+        for file in &files {
+            let _ = rename_file(file, pattern, substitute, true);
+        }
+        proceed_query();
+    }
     println!("{}", LINE);
-    for file in files {
-        let _ = rename_file(file, pattern, substitute);
+    for file in &files {
+        let _ = rename_file(file, pattern, substitute, false);
     }
     println!("{}", LINE);
 }
