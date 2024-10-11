@@ -1,11 +1,10 @@
-use crate::functions::common::{color_substring, proceed_query, COLORS};
+use crate::utils::cli::{color_substring, proceed_query, COLORS, LINE};
 use clap::builder::ArgAction;
 use clap::Args;
 use glob::glob;
 use regex::Regex;
 use std::path::{Path, PathBuf};
 
-const LINE: &str = "-------------------";
 #[derive(Args, Debug)]
 pub struct RenameArgs {
     pub path: std::path::PathBuf,
