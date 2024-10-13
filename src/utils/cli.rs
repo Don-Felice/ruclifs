@@ -2,12 +2,17 @@ use ::phf::{phf_map, Map};
 use regex::Regex;
 use std::io;
 
-pub const LINE: &str = "――――――――――――――――――――――――――――――――――――――――――";
+pub const INDENT: &str = "    ";
+
+pub fn print_line(text: &str) {
+    println!("{:―^50}", text);
+}
 
 pub const COLORS: Map<&str, &str> = phf_map! {
+    "cyan"=> "\x1b[96m",
     "grey" => "\x1b[90m",
     "red"=> "\x1b[32m",
-    "cyan"=> "\x1b[96m",
+    "yellow"=> "\x1b[33m",
     "default"=> "\x1b[0m",
 };
 
