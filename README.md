@@ -1,4 +1,4 @@
-![Lint and Test](https://github.com/Don-Felice/ruclifs/workflows/lint_and_test/badge.svg)
+![Lint and Test](https://github.com/Don-Felice/ruclifs/actions/workflows/lint_and_test.yml/badge.svg)
 
 # ruclifs
 
