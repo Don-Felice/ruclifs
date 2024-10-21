@@ -38,8 +38,17 @@ pub fn get_unique_path(path_in: &PathBuf, mock_paths: &MockPaths) -> PathBuf {
         && !mock_paths.free.contains(&path_in)
     {
         let mut name_count: i32;
-        let file_ext = path_in.extension().unwrap().to_str().unwrap();
-        let re = Regex::new(&format!(r"_(\d*).{}$", file_ext)).unwrap();
+
+        let mut file_ext;
+        match path_in.extension() {
+            Some(ext) => {
+                file_ext = String::from(".");
+                file_ext.push_str(ext.to_str().unwrap())
+            }
+            None => file_ext = String::from(""),
+        }
+
+        let re = Regex::new(&format!(r"_(\d*){}$", file_ext)).unwrap();
         let mut file_name_new: String;
 
         match re.captures(file_name) {
@@ -47,13 +56,13 @@ pub fn get_unique_path(path_in: &PathBuf, mock_paths: &MockPaths) -> PathBuf {
                 let cap = caps.get(1).unwrap().as_str();
                 name_count = cap.parse::<i32>().unwrap() + 1;
                 file_name_new = re
-                    .replace_all(file_name, format!("_{}.{}", name_count, file_ext))
+                    .replace_all(file_name, format!("_{}{}", name_count, file_ext))
                     .to_string();
             }
             None => {
                 file_name_new = path_in.file_stem().unwrap().to_str().unwrap().to_owned();
-                file_name_new.push_str("_1.");
-                file_name_new.push_str(file_ext);
+                file_name_new.push_str("_1");
+                file_name_new.push_str(&file_ext);
                 name_count = 1;
             }
         }
