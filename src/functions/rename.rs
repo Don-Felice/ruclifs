@@ -1,12 +1,11 @@
 use crate::utils::cli::{
     color_substring, highlight_string, print_line, proceed_query, COLORS, INDENT,
 };
-use crate::utils::file_sys::{get_unique_path, MockPaths};
+use crate::utils::file_sys::{get_files, get_unique_path, MockPaths};
 use clap::builder::ArgAction;
 use clap::Args;
-use glob::glob;
 use regex::Regex;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 #[derive(Args, Debug)]
 pub struct RenameArgs {
@@ -21,31 +20,6 @@ pub struct RenameArgs {
     pub recursive: bool,
     #[arg(short = 'S', long = "skip_preview", action=ArgAction::SetTrue)]
     pub skip_preview: bool,
-}
-
-pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf> {
-    let full_glob_pattern = if recursive == true {
-        PathBuf::from(dir).join("**")
-    } else {
-        PathBuf::from(dir)
-    };
-
-    let full_glob_pattern = full_glob_pattern.join(glob_pattern);
-
-    let mut files: Vec<PathBuf> = Vec::new();
-
-    for entry in glob(full_glob_pattern.to_str().unwrap()).expect("Failed to read glob pattern") {
-        match entry {
-            Ok(file_path) => {
-                if file_path.is_file() {
-                    files.push(file_path.clone())
-                }
-            }
-            Err(e) => println!("{:?}", e),
-        }
-    }
-    files.sort();
-    files
 }
 
 fn rename_file(
