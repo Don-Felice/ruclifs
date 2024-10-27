@@ -1,11 +1,10 @@
-use crate::utils::cli::{
-    color_substring, highlight_string, print_line, proceed_query, COLORS, INDENT,
-};
+use crate::utils::cli::{print_line, proceed_query, Styler, INDENT};
 use crate::utils::file_sys::{get_files, get_unique_path, MockPaths};
 use clap::builder::ArgAction;
 use clap::Args;
 use regex::Regex;
 use std::path::PathBuf;
+use std::process;
 
 #[derive(Args, Debug)]
 pub struct RenameArgs {
@@ -30,11 +29,17 @@ fn rename_file(
     mock_paths: &MockPaths,
 ) -> PathBuf {
     let file_name = path_file.file_name().unwrap().to_str().unwrap();
-    let re = Regex::new(pattern).unwrap();
+    let re = Regex::new(pattern).unwrap_or_else(|err| {
+        println!("Problem when compiling the regex pattern: {err}");
+        process::exit(1)
+    });
     let file_name_new = re.replace_all(file_name, substitute).to_string();
+    let styler_warning = Styler::build("yellow", "", false, false, "").unwrap();
+    let styler_grayed = Styler::build("gray", "", false, false, "").unwrap();
+    let styler_match = Styler::build("cyan", "", false, true, pattern).unwrap();
+
     if file_name_new != file_name {
-        let file_name_color =
-            color_substring(file_name, pattern, COLORS.get("cyan").unwrap(), true);
+        let file_name_color = styler_match.style(file_name);
 
         let path_candidate = path_file.parent().unwrap().join(file_name_new);
         let path_new = get_unique_path(&path_candidate, mock_paths);
@@ -47,26 +52,17 @@ fn rename_file(
 
         if path_new != path_candidate {
             print_message.push_str(INDENT);
-            print_message.push_str(&highlight_string(
-                "Warning: Path already exists, adding suffix.",
-                COLORS.get("yellow").unwrap(),
-                false,
-            ))
+            print_message
+                .push_str(&styler_warning.style("Warning: Path already exists, adding suffix."))
         }
 
         println!("{}", print_message);
-
         if !dry_run {
             let _ = std::fs::rename(path_file, path_new.clone());
         }
-
         return path_new;
     } else {
-        let printout = highlight_string(
-            format!("{} -> {}", file_name, file_name).as_str(),
-            COLORS.get("grey").unwrap(),
-            false,
-        );
+        let printout = styler_grayed.style(format!("{} -> {}", file_name, file_name).as_str());
 
         println!("{printout}");
         return path_file.to_path_buf();
