@@ -1,5 +1,4 @@
 use regex::Regex;
-use std::error::Error;
 use std::io;
 use std::process;
 
@@ -96,20 +95,6 @@ impl Styler {
     }
 }
 
-// pub fn style_substring(
-//     string: &str,
-//     pattern: &str,
-//     color: &str,
-//     underline: bool,
-// ) -> Result<String, Box<dyn Error>> {
-//     let highlight_pattern = format!("({})", pattern);
-//     let highlight_re = Regex::new(&highlight_pattern)?;
-//     let styler = Styler::build(color, "", false, underline, "").unwrap();
-//     Ok(highlight_re
-//         .replace_all(string, styler.style("$1"))
-//         .into_owned())
-// }
-
 pub fn proceed_query(text: &str) {
     println!("\n{}", text);
     let mut input = String::new();
@@ -120,6 +105,6 @@ pub fn proceed_query(text: &str) {
                 std::process::exit(0)
             }
         }
-        Err(error) => println!("error: {error}"),
+        Err(err) => println!("Problem reading the input: {err}"),
     }
 }

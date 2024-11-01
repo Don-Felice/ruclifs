@@ -1,8 +1,9 @@
 use glob::glob;
 use regex::Regex;
 use std::path::{Path, PathBuf};
+use std::process;
 
-pub struct MockPaths {
+struct MockPaths {
     pub taken: Vec<PathBuf>,
     pub free: Vec<PathBuf>,
 }
@@ -25,65 +26,87 @@ pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf
                     files.push(file_path.clone())
                 }
             }
-            Err(e) => println!("{:?}", e),
+            Err(e) => {
+                println!("Problem with file collection: {:?}.\nAborting.", e);
+                process::exit(1)
+            }
         }
     }
     files.sort();
     files
 }
 
-pub fn get_unique_path(path_in: &PathBuf, mock_paths: &MockPaths) -> PathBuf {
-    let file_name = path_in.file_name().unwrap().to_str().unwrap();
-    if (path_in.exists() || mock_paths.taken.contains(&path_in))
-        && !mock_paths.free.contains(&path_in)
-    {
-        let mut name_count: i32;
+pub struct UniquePathGetter {
+    mock_paths: MockPaths, // mimic taken and free paths when running dry
+    num_regex: Regex,      // we only compile at construct time
+}
+impl UniquePathGetter {
+    /// Initializes a UniquePathGetter with empty mocking no taken or free paths.
+    pub fn new() -> UniquePathGetter {
+        return UniquePathGetter {
+            mock_paths: MockPaths {
+                taken: Vec::new(),
+                free: Vec::new(),
+            },
+            num_regex: Regex::new(r"_(\d*)$").unwrap(),
+        };
+    }
 
-        let mut file_ext;
-        match path_in.extension() {
-            Some(ext) => {
-                file_ext = String::from(".");
-                file_ext.push_str(ext.to_str().unwrap())
-            }
-            None => file_ext = String::from(""),
-        }
+    pub fn add_mock_taken(&mut self, path: PathBuf) {
+        self.mock_paths.taken.push(path)
+    }
 
-        let re = Regex::new(&format!(r"_(\d*){}$", file_ext)).unwrap();
-        let mut file_name_new: String;
-
-        match re.captures(file_name) {
-            Some(caps) => {
-                let cap = caps.get(1).unwrap().as_str();
-                name_count = cap.parse::<i32>().unwrap() + 1;
-                file_name_new = re
-                    .replace_all(file_name, format!("_{}{}", name_count, file_ext))
-                    .to_string();
-            }
-            None => {
-                file_name_new = path_in.file_stem().unwrap().to_str().unwrap().to_owned();
-                file_name_new.push_str("_1");
-                file_name_new.push_str(&file_ext);
-                name_count = 1;
-            }
-        }
-
-        let mut path_out = path_in
-            .parent()
-            .expect("No parent folder identified.")
-            .join(&file_name_new);
-
-        while (path_out.exists() || mock_paths.taken.contains(&path_out))
-            && !mock_paths.free.contains(&path_out)
+    pub fn add_mock_free(&mut self, path: PathBuf) {
+        self.mock_paths.free.push(path)
+    }
+    pub fn get_unique(&self, path_in: &PathBuf) -> PathBuf {
+        let file_stem_in = path_in.file_stem().unwrap().to_str().unwrap();
+        if (path_in.exists() || self.mock_paths.taken.contains(&path_in))
+            && !self.mock_paths.free.contains(&path_in)
         {
-            name_count += 1;
-            file_name_new = re
-                .replace_all(&file_name_new, format!("_{}.{}", name_count, file_ext))
-                .to_string();
-            path_out = path_in.parent().unwrap().join(&file_name_new);
+            let mut name_count: i32;
+
+            let mut file_ext;
+            match path_in.extension() {
+                Some(ext) => {
+                    file_ext = String::from(".");
+                    file_ext.push_str(ext.to_str().unwrap())
+                }
+                None => file_ext = String::from(""),
+            }
+
+            let file_stem_bare: String;
+
+            match self.num_regex.captures(file_stem_in) {
+                Some(caps) => {
+                    let cap = caps.get(1).unwrap().as_str();
+                    name_count = cap.parse::<i32>().unwrap() + 1;
+                    file_stem_bare = self.num_regex.replace_all(file_stem_in, "").to_string();
+                }
+                None => {
+                    file_stem_bare = file_stem_in.to_owned();
+                    name_count = 1;
+                }
+            }
+            let mut file_name_new =
+                file_stem_bare.clone() + &format!("_{}{}", name_count, file_ext);
+
+            let mut path_out = path_in
+                .parent()
+                .expect("No parent folder identified.")
+                .join(&file_name_new);
+
+            while (path_out.exists() || self.mock_paths.taken.contains(&path_out))
+                && !self.mock_paths.free.contains(&path_out)
+            {
+                name_count += 1;
+                file_name_new = file_stem_bare.clone() + &format!("_{}{}", name_count, file_ext);
+                path_out = path_in.parent().unwrap().join(&file_name_new);
+            }
+            return path_out;
+        } else {
+            return path_in.to_path_buf();
         }
-        return path_out;
-    } else {
-        return path_in.to_path_buf();
     }
 }
 
@@ -92,58 +115,49 @@ mod test_get_unique_path {
     use std::env::current_exe;
     use std::path::PathBuf;
 
-    use super::{get_unique_path, MockPaths};
+    use super::UniquePathGetter;
 
     #[test]
     fn path_free() {
+        let path_getter = UniquePathGetter::new();
         let path_in = PathBuf::from("/some/path/to/file.rs");
-        let path_out = get_unique_path(
-            &path_in,
-            &MockPaths {
-                taken: Vec::new(),
-                free: Vec::new(),
-            },
-        );
+        let path_out = path_getter.get_unique(&path_in);
         assert_eq!(path_out, path_in);
     }
 
     #[test]
     fn path_taken() {
+        let path_getter = UniquePathGetter::new();
         let path_in = current_exe().unwrap();
-        let path_out = get_unique_path(
-            &path_in,
-            &MockPaths {
-                taken: Vec::new(),
-                free: Vec::new(),
-            },
-        );
+        let path_out = path_getter.get_unique(&path_in);
         assert_eq!(path_out.parent(), path_in.parent());
         assert_ne!(path_out, path_in);
     }
 
     #[test]
     fn path_in_mocked_taken() {
+        let mut path_getter = UniquePathGetter::new();
         let path_in = PathBuf::from("/some/path/to/file.rs");
-        let path_out = get_unique_path(
-            &path_in,
-            &MockPaths {
-                taken: vec![path_in.clone()],
-                free: Vec::new(),
-            },
-        );
+        path_getter.add_mock_taken(path_in.clone());
+        let path_out = path_getter.get_unique(&path_in);
         assert_eq!(path_out, PathBuf::from("/some/path/to/file_1.rs"));
     }
 
     #[test]
+    fn path_in_mocked_taken_has_suffix() {
+        let mut path_getter = UniquePathGetter::new();
+        let path_in = PathBuf::from("/some/path/to/file_41.rs");
+        path_getter.add_mock_taken(path_in.clone());
+        let path_out = path_getter.get_unique(&path_in);
+        assert_eq!(path_out, PathBuf::from("/some/path/to/file_42.rs"));
+    }
+
+    #[test]
     fn path_in_mocked_free() {
+        let mut path_getter = UniquePathGetter::new();
         let path_in = current_exe().unwrap();
-        let path_out = get_unique_path(
-            &path_in,
-            &MockPaths {
-                taken: Vec::new(),
-                free: vec![path_in.clone()],
-            },
-        );
+        path_getter.add_mock_free(path_in.clone());
+        let path_out = path_getter.get_unique(&path_in);
         assert_eq!(path_out, path_in)
     }
 }

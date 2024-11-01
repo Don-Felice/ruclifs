@@ -1,5 +1,6 @@
 mod functions;
 mod utils;
+use std::process;
 
 use clap::{Parser, Subcommand};
 
@@ -10,13 +11,7 @@ use crate::functions::sed::SedArgs;
 #[command(author, version, about, long_about = None)]
 struct MainArgs {
     #[command(subcommand)]
-    cmd: Commands, // path_file: std::path::PathBuf,
-
-                   // #[arg(short = 'p', long = "pattern")]
-                   // pattern: String,
-
-                   // #[arg(short = 'r', long = "replacement", default_value_t = String::from(" "))]
-                   // replacement: String,
+    cmd: Commands,
 }
 
 #[derive(Subcommand, Debug)]
@@ -38,14 +33,17 @@ fn main() {
     match &args.cmd {
         Commands::Ren(cmd_args) => {
             println!("{:?}", cmd_args);
-            rename(
+            if let Err(e) = rename(
                 &cmd_args.path,
                 &cmd_args.filter_string,
                 &cmd_args.pattern,
                 &cmd_args.substitute,
                 cmd_args.recursive,
                 cmd_args.skip_preview,
-            );
+            ) {
+                println!("Error when renaming: {e}");
+                process::exit(1);
+            }
         }
         Commands::Sed(cmd_args) => {
             println!("{:?}", cmd_args)
