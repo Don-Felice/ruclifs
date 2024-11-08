@@ -1,6 +1,6 @@
-use ::phf::{phf_map, Map};
 use regex::Regex;
 use std::io;
+use std::process;
 
 pub const INDENT: &str = "    ";
 
@@ -8,29 +8,91 @@ pub fn print_line(text: &str) {
     println!("{:―^50}", text);
 }
 
-pub const COLORS: Map<&str, &str> = phf_map! {
-    "cyan"=> "\x1b[96m",
-    "grey" => "\x1b[90m",
-    "red"=> "\x1b[32m",
-    "yellow"=> "\x1b[33m",
-    "default"=> "\x1b[0m",
-};
-
-pub fn highlight_string(s: &str, color: &str, underline: bool) -> String {
-    let mut highlight = color.to_owned();
-    if underline {
-        highlight.pop().unwrap();
-        highlight.push_str(";4m");
-    }
-    format!("{}{}{}", highlight, s, COLORS.get("default").unwrap())
+pub struct Styler {
+    style_seq: String,
+    reset_seq: String,
+    regex: Option<Regex>,
 }
+impl Styler {
+    pub fn build(
+        color_fg: &str,
+        color_bg: &str,
+        bold: bool,
+        underline: bool,
+        pattern: &str,
+    ) -> Result<Styler, &'static str> {
+        // do nothing if no options are chosen
+        if (color_fg == "" || color_fg == "default")
+            && (color_bg == "" || color_bg == "default")
+            && !bold
+            && !underline
+        {
+            return Ok(Styler {
+                style_seq: String::from(""),
+                reset_seq: String::from(""),
+                regex: None,
+            });
+        }
 
-pub fn color_substring(string: &str, pattern: &str, color: &str, underline: bool) -> String {
-    let highlight_pattern = format!("({})", pattern);
-    let hightlight_re = Regex::new(&highlight_pattern).unwrap();
-    hightlight_re
-        .replace_all(string, highlight_string("$1", color, underline))
-        .into_owned()
+        let mut style: Vec<&str> = Vec::new();
+
+        if bold {
+            style.push("1");
+        }
+        if underline {
+            style.push("4");
+        }
+
+        match color_fg {
+            "cyan" => style.push("96"),
+            "green" => style.push("32"),
+            "gray" => style.push("90"),
+            "red" => style.push("31"),
+            "yellow" => style.push("33"),
+            "" | "default" => (),
+            _ => return Err("Chosen color is not supported."),
+        };
+
+        match color_bg {
+            "cyan" => style.push("46"),
+            "gray" => style.push("100"),
+            "red" => style.push("41"),
+            "yellow" => style.push("43"),
+            "" | "default" => (),
+            _ => return Err("Chosen color is not supported."),
+        };
+        let style_str = style.join(";");
+
+        let style_seq = format!("\x1b[{}m", style_str);
+
+        // get regex
+        if pattern != "" {
+            let style_regex = Regex::new(&format!("({})", pattern)).unwrap_or_else(|err| {
+                println!("Problem when compiling the regex pattern: {err}");
+                process::exit(1)
+            });
+            return Ok(Styler {
+                style_seq: style_seq.to_owned(),
+                reset_seq: String::from("\x1b[0m"),
+                regex: Some(style_regex),
+            });
+        } else {
+            return Ok(Styler {
+                style_seq: style_seq.to_owned(),
+                reset_seq: String::from("\x1b[0m"),
+                regex: None,
+            });
+        }
+    }
+
+    pub fn style(&self, text: &str) -> String {
+        match &self.regex {
+            None => format!("{}{}{}", &self.style_seq, text, &self.reset_seq),
+            Some(re) => re
+                .replace_all(text, format!("{}$1{}", &self.style_seq, &self.reset_seq))
+                .into_owned(),
+        }
+    }
 }
 
 pub fn proceed_query(text: &str) {
@@ -43,6 +105,6 @@ pub fn proceed_query(text: &str) {
                 std::process::exit(0)
             }
         }
-        Err(error) => println!("error: {error}"),
+        Err(err) => println!("Problem reading the input: {err}"),
     }
 }
