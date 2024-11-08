@@ -97,7 +97,7 @@ pub fn rename(
             }
         }
         print_line("END PREVIEW");
-        proceed_query("If you wanna apply this renaming, give me a 'yes' or 'y' now:");
+        proceed_query("If you wanna rename for real, give me a 'yes' or 'y' now:");
     }
     print_line("");
     let path_getter = UniquePathGetter::new();
@@ -106,4 +106,84 @@ pub fn rename(
     }
     print_line("");
     Ok(())
+}
+
+#[cfg(test)]
+mod test_rename {
+    use std::fs::{create_dir, File};
+    use tempfile::tempdir;
+
+    use super::rename;
+
+    #[test]
+    fn rename_files_recursive() {
+        let tempdir = tempdir().unwrap();
+        let tempdir_path = tempdir.path().to_path_buf();
+
+        let file_path = tempdir_path.join("some_file.txt");
+        File::create(file_path).unwrap();
+        let file_path = tempdir_path.join("some_other_file.txt");
+        File::create(file_path).unwrap();
+
+        let subdir = tempdir.path().join("subdir.txt");
+        create_dir(&subdir).unwrap();
+        File::create(subdir.join("some_file.txt")).unwrap();
+
+        rename(&tempdir_path, "*", "some", "other", true, true).unwrap();
+
+        assert!(!tempdir_path.join("some_file.txt").is_file());
+        assert!(tempdir_path.join("other_file.txt").is_file());
+
+        assert!(!tempdir_path.join("some_other_file.txt").is_file());
+        assert!(tempdir_path.join("other_other_file.txt").is_file());
+
+        assert!(!subdir.join("some_file.txt").is_file());
+        assert!(subdir.join("other_file.txt").is_file());
+
+        tempdir.close().unwrap();
+    }
+
+    #[test]
+    fn rename_files_non_recursive() {
+        let tempdir = tempdir().unwrap();
+        let tempdir_path = tempdir.path().to_path_buf();
+
+        let file_path = tempdir_path.join("some_file.txt");
+        File::create(file_path).unwrap();
+
+        let subdir = tempdir_path.join("subdir.txt");
+        create_dir(&subdir).unwrap();
+        File::create(subdir.join("some_file.txt")).unwrap();
+
+        rename(&tempdir_path, "*", "some", "other", false, true).unwrap();
+
+        assert!(!tempdir_path.join("some_file.txt").is_file());
+        assert!(tempdir_path.join("other_file.txt").is_file());
+
+        assert!(!subdir.join("other_file.txt").is_file());
+        assert!(subdir.join("some_file.txt").is_file());
+
+        tempdir.close().unwrap();
+    }
+
+    #[test]
+    fn rename_files_filtered() {
+        let tempdir = tempdir().unwrap();
+        let tempdir_path = tempdir.path().to_path_buf();
+
+        let file_path = tempdir.path().join("some_file.txt");
+        File::create(file_path).unwrap();
+        let file_path = tempdir.path().join("some_other_file.txt");
+        File::create(file_path).unwrap();
+
+        rename(&tempdir_path, "*other*", "some", "other", true, true).unwrap();
+
+        assert!(tempdir_path.join("some_file.txt").is_file());
+        assert!(!tempdir_path.join("other_file.txt").is_file());
+
+        assert!(!tempdir_path.join("some_other_file.txt").is_file());
+        assert!(tempdir_path.join("other_other_file.txt").is_file());
+
+        tempdir.close().unwrap();
+    }
 }
