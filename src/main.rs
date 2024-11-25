@@ -1,11 +1,14 @@
 mod functions;
 mod utils;
+use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand};
 
 use crate::functions::rename::{rename, RenameArgs};
 use crate::functions::sed::SedArgs;
+use crate::functions::tree::{build_tree, TreeArgs};
+use std::env::current_dir;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
@@ -22,6 +25,7 @@ enum Commands {
     Sed(SedArgs),
     // copy(CopyArgs),
     // delete(DeleteArgs),
+    Tree(TreeArgs),
 }
 
 fn main() {
@@ -47,6 +51,9 @@ fn main() {
         }
         Commands::Sed(cmd_args) => {
             println!("{:?}", cmd_args)
+        }
+        Commands::Tree(cmd_args) => {
+            build_tree(&cmd_args.path, cmd_args.depth, !cmd_args.hide_size);
         }
     }
 }
