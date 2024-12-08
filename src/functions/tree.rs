@@ -1,18 +1,15 @@
-use crate::utils::cli::Styler;
+use crate::utils::cli::{bites2str, Styler};
 use clap::builder::ArgAction;
 use clap::Args;
 use std::env::current_dir;
-use std::error::Error;
 use std::fmt;
-use std::fs::{self, File};
+use std::fs::{self, metadata};
 use std::path::PathBuf;
 
-const PIPE: &str = "│";
 const ELBOW: &str = "└── ";
 const TEE: &str = "├── ";
 const PIPE_PREFIX: &str = "│   ";
 const SPACE_PREFIX: &str = "    ";
-const SPACE_SIZE: &str = " ";
 
 #[derive(Args, Debug)]
 pub struct TreeArgs {
@@ -30,16 +27,17 @@ trait Size {
 }
 
 #[derive(Clone)]
-struct FileEntry {
+struct FileEntry<'a> {
     path: PathBuf,
     prefix: String,
     connector: String,
     show_size: bool,
-    size: Option<i32>,
+    size: Option<u64>,
+    styler_size: &'a Styler,
 }
 
 #[derive(Clone)]
-struct DirEntry {
+struct DirEntry<'a> {
     path: PathBuf,
     prefix: String,
     connector: String,
@@ -47,16 +45,24 @@ struct DirEntry {
     th_depth: i32,
     show_size: bool,
     have_access: bool,
-    children_file: Vec<FileEntry>,
-    children_dir: Vec<DirEntry>,
-    size: Option<i32>,
+    children_file: Vec<FileEntry<'a>>,
+    children_dir: Vec<DirEntry<'a>>,
+    size: Option<u64>,
+    styler_size: &'a Styler,
+    styler_folder: &'a Styler,
 }
 
-impl FileEntry {
-    fn build(path: PathBuf, prefix: String, connector: String, show_size: bool) -> FileEntry {
-        let size: Option<i32>;
+impl FileEntry<'_> {
+    fn build(
+        path: PathBuf,
+        prefix: String,
+        connector: String,
+        show_size: bool,
+        styler_size: &Styler,
+    ) -> FileEntry {
+        let size: Option<u64>;
         if show_size {
-            size = Some(42);
+            size = Some(metadata(&path).unwrap().len());
         } else {
             size = None;
         }
@@ -66,26 +72,22 @@ impl FileEntry {
             connector: connector,
             show_size: show_size,
             size: size,
+            styler_size: styler_size,
         }
     }
 }
 
-impl DirEntry {
-    fn build(
+impl DirEntry<'_> {
+    fn build<'a>(
         path: PathBuf,
         prefix: String,
         connector: String,
         depth: i32,
         th_depth: i32,
         show_size: bool,
-    ) -> DirEntry {
-        let size: Option<i32>;
-        if show_size {
-            size = Some(42)
-        } else {
-            size = None
-        };
-
+        styler_size: &'a Styler,
+        styler_folder: &'a Styler,
+    ) -> DirEntry<'a> {
         DirEntry {
             path: path,
             prefix: prefix,
@@ -96,7 +98,9 @@ impl DirEntry {
             have_access: true, //TODO: have logic here
             children_file: Vec::new(),
             children_dir: Vec::new(),
-            size: size,
+            size: None,
+            styler_size: styler_size,
+            styler_folder: styler_folder,
         }
     }
     fn get_children(&mut self) {
@@ -141,6 +145,8 @@ impl DirEntry {
                     self.depth + 1,
                     self.th_depth,
                     self.show_size,
+                    self.styler_size,
+                    self.styler_folder,
                 );
                 new_dir_entry.get_children();
                 children_dir.push(new_dir_entry);
@@ -150,15 +156,28 @@ impl DirEntry {
                     child_prefix.clone(),
                     child_connector,
                     self.show_size,
+                    self.styler_size,
                 ));
             }
         }
         self.children_file = children_file;
         self.children_dir = children_dir;
     }
+
+    fn get_size(&mut self) {
+        let mut size: u64 = 0;
+        for i in self.children_dir.iter_mut() {
+            i.get_size();
+            size += i.size.unwrap_or_default();
+        }
+        for i in self.children_file.iter() {
+            size += i.size.unwrap_or_default();
+        }
+        self.size = Some(size);
+    }
 }
 
-impl fmt::Display for FileEntry {
+impl fmt::Display for FileEntry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = format!(
             "{}{}{}",
@@ -168,24 +187,29 @@ impl fmt::Display for FileEntry {
         );
 
         if self.show_size {
-            result.push_str(&self.size.unwrap().to_string());
+            result.push_str(
+                format!(" {:6}", bites2str(self.size.unwrap(), self.styler_size,)).as_str(),
+            );
         }
 
         write!(f, "{}\n", result)
     }
 }
 
-impl fmt::Display for DirEntry {
+impl fmt::Display for DirEntry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut result = format!(
             "{}{}{}",
             self.prefix,
             self.connector,
-            self.path.file_name().unwrap().to_str().unwrap(),
+            self.styler_folder
+                .style(self.path.file_name().unwrap().to_str().unwrap()),
         );
 
         if self.show_size {
-            result.push_str(&self.size.unwrap().to_string());
+            result.push_str(
+                format!(" {:6}", bites2str(self.size.unwrap(), self.styler_size,)).as_str(),
+            );
         }
 
         write!(f, "{}\n", result)?;
@@ -207,14 +231,95 @@ pub fn build_tree(path: &PathBuf, th_depth: i32, show_size: bool) {
         _ => path.to_owned(),
     };
 
+    let styler_size = Styler::build("cyan", "", false, false, "").unwrap();
+    let styler_folder = Styler::build("yellow", "", false, false, "").unwrap();
+
     let mut root_dir = DirEntry::build(
         root_path.to_owned(),
         String::from(""),
         String::from(""),
         0,
         th_depth,
-        false,
+        show_size,
+        &styler_size,
+        &styler_folder,
     );
     root_dir.get_children();
+    if show_size {
+        root_dir.get_size();
+    }
     println!("{}", root_dir)
+}
+
+#[cfg(test)]
+mod test_tree {
+    use crate::utils::cli::{bites2str, Styler};
+    use std::fs::{create_dir, File};
+    use tempfile::tempdir;
+
+    use super::DirEntry;
+
+    #[test]
+    fn tree_full_depth_no_size() {
+        // set up directory
+        let tempdir = tempdir().unwrap();
+
+        let rootdir = tempdir.path().join("root_dir");
+        create_dir(&rootdir).unwrap();
+
+        File::create(rootdir.join("some_file_1.txt")).unwrap();
+        File::create(rootdir.join("some_file_2.txt")).unwrap();
+
+        let some_subdir = rootdir.join("some_subdir");
+        create_dir(&some_subdir).unwrap();
+        let some_other_subdir = rootdir.join("some_other_subdir");
+        create_dir(&some_other_subdir).unwrap();
+
+        File::create(some_subdir.join("some_subdir_file_1.txt")).unwrap();
+        File::create(some_subdir.join("some_subdir_file_2.rs")).unwrap();
+
+        let some_subsubdir = rootdir.join("some_subsubdir");
+        create_dir(&some_subsubdir).unwrap();
+
+        File::create(some_subsubdir.join("some_subsubdir_file_1.txt")).unwrap();
+        File::create(some_subsubdir.join("some_subsubdir_file_2.rs")).unwrap();
+        File::create(some_subsubdir.join("some_subsubdir_file_3.rs")).unwrap();
+
+        let styler_size = Styler::build("", "", false, false, "").unwrap();
+        let styler_folder = Styler::build("", "", false, false, "").unwrap();
+        // build tree
+        let mut root_dir_entry = DirEntry::build(
+            rootdir.to_owned(),
+            String::from(""),
+            String::from(""),
+            0,
+            -1,
+            false,
+            &styler_size,
+            &styler_folder,
+        );
+        root_dir_entry.get_children();
+
+        println!("{}", root_dir_entry);
+
+        assert_eq!(
+            root_dir_entry.to_string(),
+            "\
+root_dir
+├── some_file_1.txt
+├── some_file_2.txt
+├── some_other_subdir
+├── some_subdir
+│   ├── some_subdir_file_1.txt
+│   └── some_subdir_file_2.rs
+└── some_subsubdir
+    ├── some_subsubdir_file_1.txt
+    ├── some_subsubdir_file_2.rs
+    └── some_subsubdir_file_3.rs
+"
+        );
+
+        // teardown
+        tempdir.close().unwrap();
+    }
 }

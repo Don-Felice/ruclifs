@@ -108,3 +108,38 @@ pub fn proceed_query(text: &str) {
         Err(err) => println!("Problem reading the input: {err}"),
     }
 }
+
+/// #### Format data size in bites to nicely readable units.
+///
+/// ##### Arguments
+/// * `size`: Input size in bites
+/// * `color`: Output color for rich markup, defaults to "cyan"
+/// * `return`: String of data size wrapped in color markup
+pub fn bites2str(size: u64, styler: &Styler) -> String {
+    let fsize = size as f64;
+    let unit: &str;
+    let unit_size: f32;
+
+    let base: f64 = 1000.;
+
+    if fsize < base {
+        unit = "B";
+        unit_size = fsize as f32;
+    } else if fsize < base.powf(2.) {
+        unit = "KB";
+        unit_size = (fsize / base) as f32;
+    } else if fsize < base.powf(3.) {
+        unit = "MB";
+        unit_size = (fsize / base.powf(2.)) as f32;
+    } else if fsize < base.powf(4.) {
+        unit = "GB";
+        unit_size = (fsize / base.powf(3.)) as f32;
+    } else if fsize < base.powf(5.) {
+        unit = "TB";
+        unit_size = (fsize / base.powf(4.)) as f32;
+    } else {
+        unit = "PB";
+        unit_size = (fsize / base.powf(5.)) as f32;
+    }
+    return styler.style(format!("{:7.2} {}", unit_size, unit).as_str());
+}

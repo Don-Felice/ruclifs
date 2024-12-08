@@ -125,7 +125,7 @@ mod test_rename {
         let file_path = tempdir_path.join("some_other_file.txt");
         File::create(file_path).unwrap();
 
-        let subdir = tempdir.path().join("subdir.txt");
+        let subdir = tempdir.path().join("subdir");
         create_dir(&subdir).unwrap();
         File::create(subdir.join("some_file.txt")).unwrap();
 

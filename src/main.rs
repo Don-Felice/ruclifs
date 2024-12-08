@@ -1,6 +1,5 @@
 mod functions;
 mod utils;
-use std::path::PathBuf;
 use std::process;
 
 use clap::{Parser, Subcommand};
@@ -8,7 +7,6 @@ use clap::{Parser, Subcommand};
 use crate::functions::rename::{rename, RenameArgs};
 use crate::functions::sed::SedArgs;
 use crate::functions::tree::{build_tree, TreeArgs};
-use std::env::current_dir;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
