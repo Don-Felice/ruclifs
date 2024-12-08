@@ -235,13 +235,16 @@ impl fmt::Display for DirEntry<'_> {
             };
             result.push_str(size_suffix.as_str());
         }
-
         write!(f, "{}\n", result)?;
-        for child in self.children_file.clone().iter() {
-            write!(f, "{}", child)?;
-        }
-        for child in self.children_dir.clone().iter() {
-            write!(f, "{}", child)?;
+
+        // print children if depth level permits
+        if (self.th_depth <= 0) || (self.depth < self.th_depth) {
+            for child in self.children_file.clone().iter() {
+                write!(f, "{}", child)?;
+            }
+            for child in self.children_dir.clone().iter() {
+                write!(f, "{}", child)?;
+            }
         }
         Ok(())
     }
