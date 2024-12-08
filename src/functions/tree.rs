@@ -128,7 +128,7 @@ impl DirEntry<'_> {
                     .filter_map(|e| e.ok())
                     .map(|e| e.path())
                     .collect::<Vec<_>>();
-                content.sort_by_key(|e| e.is_dir())
+                content.sort_by_key(|e| (e.is_dir(), e.to_owned()))
             }
             Err(_) => {
                 self.have_access = false;
@@ -177,19 +177,19 @@ impl DirEntry<'_> {
             self.size = None;
             return;
         }
+        let mut all_access = true;
         let mut size: u64 = 0;
         for i in self.children_dir.iter_mut() {
             i.get_size();
-            if !i.have_access {
-                self.size = None;
-                return;
+            if i.size == None {
+                all_access = false;
             }
             size += i.size.unwrap_or_default();
         }
         for i in self.children_file.iter() {
             size += i.size.unwrap_or_default();
         }
-        self.size = Some(size);
+        self.size = if all_access { Some(size) } else { None };
     }
 }
 
@@ -280,7 +280,7 @@ pub fn build_tree(path: &PathBuf, th_depth: i32, show_size: bool) {
 
 #[cfg(test)]
 mod test_tree {
-    use crate::utils::cli::{bites2str, Styler};
+    use crate::utils::cli::Styler;
     use std::fs::{create_dir, File};
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
