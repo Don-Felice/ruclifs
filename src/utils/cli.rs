@@ -206,3 +206,38 @@ mod test_styler {
         );
     }
 }
+
+#[cfg(test)]
+mod test_bytes2str {
+
+    use super::{bites2str, Styler};
+
+    #[test]
+    fn test_bytes2str() {
+        let inputs = [
+            5u64,
+            1024u64,
+            100000024u64,
+            100000000024u64,
+            1000000000024u64,
+            1000000000000024u64,
+            14000000000000000024u64,
+        ];
+        let exp_results = [
+            "   5.00 B",
+            "   1.02 KB",
+            " 100.00 MB",
+            " 100.00 GB",
+            "   1.00 TB",
+            "   1.00 PB",
+            "14000.00 PB",
+        ];
+
+        let styler = Styler::build("", "", false, false, "").unwrap();
+
+        for it in inputs.iter().zip(exp_results.iter()) {
+            let (input, exp_result) = it;
+            assert_eq!(exp_result.to_string(), bites2str(*input, &styler))
+        }
+    }
+}
