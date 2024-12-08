@@ -120,13 +120,21 @@ impl DirEntry<'_> {
             child_prefix.push_str(SPACE_PREFIX);
         }
 
-        let mut content = fs::read_dir(self.path.clone())
-            .unwrap()
-            .filter_map(|e| e.ok())
-            .map(|e| e.path())
-            .collect::<Vec<_>>();
+        let mut content: Vec<PathBuf>;
 
-        content.sort_by_key(|e| e.is_dir());
+        match fs::read_dir(self.path.clone()) {
+            Ok(c) => {
+                content = c
+                    .filter_map(|e| e.ok())
+                    .map(|e| e.path())
+                    .collect::<Vec<_>>();
+                content.sort_by_key(|e| e.is_dir())
+            }
+            Err(_) => {
+                self.have_access = false;
+                content = Vec::new()
+            }
+        };
 
         let len_content = content.len();
 
@@ -165,9 +173,17 @@ impl DirEntry<'_> {
     }
 
     fn get_size(&mut self) {
+        if !self.have_access {
+            self.size = None;
+            return;
+        }
         let mut size: u64 = 0;
         for i in self.children_dir.iter_mut() {
             i.get_size();
+            if !i.have_access {
+                self.size = None;
+                return;
+            }
             size += i.size.unwrap_or_default();
         }
         for i in self.children_file.iter() {
@@ -207,9 +223,17 @@ impl fmt::Display for DirEntry<'_> {
         );
 
         if self.show_size {
-            result.push_str(
-                format!(" {:6}", bites2str(self.size.unwrap(), self.styler_size,)).as_str(),
-            );
+            let size_suffix: String;
+
+            if self.have_access {
+                size_suffix = match self.size {
+                    Some(c) => format!(" {:6}", bites2str(c, self.styler_size)),
+                    None => self.styler_size.style(" size unknown"),
+                }
+            } else {
+                size_suffix = String::from("  \u{1b}[31maccess error\u{1b}[0m")
+            };
+            result.push_str(size_suffix.as_str());
         }
 
         write!(f, "{}\n", result)?;
@@ -255,16 +279,13 @@ pub fn build_tree(path: &PathBuf, th_depth: i32, show_size: bool) {
 mod test_tree {
     use crate::utils::cli::{bites2str, Styler};
     use std::fs::{create_dir, File};
+    use std::path::{Path, PathBuf};
     use tempfile::tempdir;
 
     use super::DirEntry;
 
-    #[test]
-    fn tree_full_depth_no_size() {
-        // set up directory
-        let tempdir = tempdir().unwrap();
-
-        let rootdir = tempdir.path().join("root_dir");
+    fn set_up_dir(dir: &Path) -> PathBuf {
+        let rootdir = dir.join("root_dir");
         create_dir(&rootdir).unwrap();
 
         File::create(rootdir.join("some_file_1.txt")).unwrap();
@@ -284,6 +305,15 @@ mod test_tree {
         File::create(some_subsubdir.join("some_subsubdir_file_1.txt")).unwrap();
         File::create(some_subsubdir.join("some_subsubdir_file_2.rs")).unwrap();
         File::create(some_subsubdir.join("some_subsubdir_file_3.rs")).unwrap();
+
+        return rootdir;
+    }
+
+    #[test]
+    fn tree_full_depth_no_size() {
+        // set up directory
+        let tempdir = tempdir().unwrap();
+        let rootdir = set_up_dir(&tempdir.path());
 
         let styler_size = Styler::build("", "", false, false, "").unwrap();
         let styler_folder = Styler::build("", "", false, false, "").unwrap();
@@ -316,6 +346,51 @@ root_dir
     ├── some_subsubdir_file_1.txt
     ├── some_subsubdir_file_2.rs
     └── some_subsubdir_file_3.rs
+"
+        );
+
+        // teardown
+        tempdir.close().unwrap();
+    }
+
+    #[test]
+    fn tree_full_depth() {
+        // set up directory
+        let tempdir = tempdir().unwrap();
+        let rootdir = set_up_dir(&tempdir.path());
+
+        let styler_size = Styler::build("", "", false, false, "").unwrap();
+        let styler_folder = Styler::build("", "", false, false, "").unwrap();
+        // build tree
+        let mut root_dir_entry = DirEntry::build(
+            rootdir.to_owned(),
+            String::from(""),
+            String::from(""),
+            0,
+            -1,
+            true,
+            &styler_size,
+            &styler_folder,
+        );
+        root_dir_entry.get_children();
+        root_dir_entry.get_size();
+
+        println!("{}", root_dir_entry);
+
+        assert_eq!(
+            root_dir_entry.to_string(),
+            "\
+root_dir    0.00 B
+├── some_file_1.txt    0.00 B
+├── some_file_2.txt    0.00 B
+├── some_other_subdir    0.00 B
+├── some_subdir    0.00 B
+│   ├── some_subdir_file_1.txt    0.00 B
+│   └── some_subdir_file_2.rs    0.00 B
+└── some_subsubdir    0.00 B
+    ├── some_subsubdir_file_1.txt    0.00 B
+    ├── some_subsubdir_file_2.rs    0.00 B
+    └── some_subsubdir_file_3.rs    0.00 B
 "
         );
 
