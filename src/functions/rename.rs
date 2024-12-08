@@ -4,7 +4,6 @@ use anyhow::Result;
 use clap::builder::ArgAction;
 use clap::Args;
 use regex::Regex;
-use std::error::Error;
 use std::path::PathBuf;
 use std::process;
 
