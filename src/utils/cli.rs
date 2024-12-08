@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use regex::Regex;
 use std::io;
 use std::process;
@@ -20,7 +21,7 @@ impl Styler {
         bold: bool,
         underline: bool,
         pattern: &str,
-    ) -> Result<Styler, &'static str> {
+    ) -> Result<Styler> {
         // do nothing if no options are chosen
         if (color_fg == "" || color_fg == "default")
             && (color_bg == "" || color_bg == "default")
@@ -50,16 +51,18 @@ impl Styler {
             "red" => style.push("31"),
             "yellow" => style.push("33"),
             "" | "default" => (),
-            _ => return Err("Chosen color is not supported."),
+            _ => return Err(anyhow!("Chosen color is not supported:{}", color_fg)),
         };
 
         match color_bg {
             "cyan" => style.push("46"),
+            "green" => style.push("42"),
             "gray" => style.push("100"),
             "red" => style.push("41"),
             "yellow" => style.push("43"),
             "" | "default" => (),
-            _ => return Err("Chosen color is not supported."),
+            //_ => return Err(format!("Chosen color is not supported:{}", "cla" ).as_str()),
+            _ => return Err(anyhow!("Chosen color is not supported:{}", color_bg)),
         };
         let style_str = style.join(";");
 
@@ -106,5 +109,135 @@ pub fn proceed_query(text: &str) {
             }
         }
         Err(err) => println!("Problem reading the input: {err}"),
+    }
+}
+
+/// #### Format data size in bites to nicely readable units.
+///
+/// ##### Arguments
+/// * `size`: Input size in bites
+/// * `color`: Output color for rich markup, defaults to "cyan"
+/// * `return`: String of data size wrapped in color markup
+pub fn bites2str(size: u64, styler: &Styler) -> String {
+    let fsize = size as f64;
+    let unit: &str;
+    let unit_size: f32;
+
+    let base: f64 = 1000.;
+
+    if fsize < base {
+        unit = "B";
+        unit_size = fsize as f32;
+    } else if fsize < base.powf(2.) {
+        unit = "KB";
+        unit_size = (fsize / base) as f32;
+    } else if fsize < base.powf(3.) {
+        unit = "MB";
+        unit_size = (fsize / base.powf(2.)) as f32;
+    } else if fsize < base.powf(4.) {
+        unit = "GB";
+        unit_size = (fsize / base.powf(3.)) as f32;
+    } else if fsize < base.powf(5.) {
+        unit = "TB";
+        unit_size = (fsize / base.powf(4.)) as f32;
+    } else {
+        unit = "PB";
+        unit_size = (fsize / base.powf(5.)) as f32;
+    }
+    return styler.style(format!("{:7.2} {}", unit_size, unit).as_str());
+}
+
+#[cfg(test)]
+mod test_styler {
+
+    use super::Styler;
+
+    #[test]
+    fn do_nothing() {
+        let styler = Styler::build("", "", false, false, "").unwrap();
+        assert_eq!("some_string", styler.style("some_string"));
+    }
+
+    #[test]
+    fn fg_color() {
+        let styler = Styler::build("cyan", "", false, false, "").unwrap();
+        assert_eq!(
+            "\u{1b}[96msome_string\u{1b}[0m",
+            styler.style("some_string")
+        );
+    }
+
+    #[test]
+    fn bg_color() {
+        let styler = Styler::build("", "yellow", false, false, "").unwrap();
+        assert_eq!(
+            "\u{1b}[43msome_string\u{1b}[0m",
+            styler.style("some_string")
+        );
+    }
+
+    #[test]
+    fn bold() {
+        let styler = Styler::build("", "", true, false, "").unwrap();
+        assert_eq!("\u{1b}[1msome_string\u{1b}[0m", styler.style("some_string"));
+    }
+
+    #[test]
+    fn undrline() {
+        let styler = Styler::build("", "", false, true, "").unwrap();
+        assert_eq!("\u{1b}[4msome_string\u{1b}[0m", styler.style("some_string"));
+    }
+
+    #[test]
+    fn all_in_style() {
+        let styler = Styler::build("red", "green", true, true, "").unwrap();
+        assert_eq!(
+            "\u{1b}[1;4;31;42msome_string\u{1b}[0m",
+            styler.style("some_string")
+        );
+    }
+
+    #[test]
+    fn regex() {
+        let styler = Styler::build("red", "green", true, true, "me_st").unwrap();
+        assert_eq!(
+            "so\u{1b}[1;4;31;42mme_st\u{1b}[0mring",
+            styler.style("some_string")
+        );
+    }
+}
+
+#[cfg(test)]
+mod test_bytes2str {
+
+    use super::{bites2str, Styler};
+
+    #[test]
+    fn test_bytes2str() {
+        let inputs = [
+            5u64,
+            1024u64,
+            100000024u64,
+            100000000024u64,
+            1000000000024u64,
+            1000000000000024u64,
+            14000000000000000024u64,
+        ];
+        let exp_results = [
+            "   5.00 B",
+            "   1.02 KB",
+            " 100.00 MB",
+            " 100.00 GB",
+            "   1.00 TB",
+            "   1.00 PB",
+            "14000.00 PB",
+        ];
+
+        let styler = Styler::build("", "", false, false, "").unwrap();
+
+        for it in inputs.iter().zip(exp_results.iter()) {
+            let (input, exp_result) = it;
+            assert_eq!(exp_result.to_string(), bites2str(*input, &styler))
+        }
     }
 }
