@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use regex::Regex;
 use std::io;
 use std::process;
@@ -20,7 +21,7 @@ impl Styler {
         bold: bool,
         underline: bool,
         pattern: &str,
-    ) -> Result<Styler, &'static str> {
+    ) -> Result<Styler> {
         // do nothing if no options are chosen
         if (color_fg == "" || color_fg == "default")
             && (color_bg == "" || color_bg == "default")
@@ -50,16 +51,18 @@ impl Styler {
             "red" => style.push("31"),
             "yellow" => style.push("33"),
             "" | "default" => (),
-            _ => return Err("Chosen color is not supported."),
+            _ => return Err(anyhow!("Chosen color is not supported:{}", color_fg)),
         };
 
         match color_bg {
             "cyan" => style.push("46"),
+            "green" => style.push("42"),
             "gray" => style.push("100"),
             "red" => style.push("41"),
             "yellow" => style.push("43"),
             "" | "default" => (),
-            _ => return Err("Chosen color is not supported."),
+            //_ => return Err(format!("Chosen color is not supported:{}", "cla" ).as_str()),
+            _ => return Err(anyhow!("Chosen color is not supported:{}", color_bg)),
         };
         let style_str = style.join(";");
 
@@ -142,4 +145,64 @@ pub fn bites2str(size: u64, styler: &Styler) -> String {
         unit_size = (fsize / base.powf(5.)) as f32;
     }
     return styler.style(format!("{:7.2} {}", unit_size, unit).as_str());
+}
+
+#[cfg(test)]
+mod test_styler {
+
+    use super::Styler;
+
+    #[test]
+    fn do_nothing() {
+        let styler = Styler::build("", "", false, false, "").unwrap();
+        assert_eq!("some_string", styler.style("some_string"));
+    }
+
+    #[test]
+    fn fg_color() {
+        let styler = Styler::build("cyan", "", false, false, "").unwrap();
+        assert_eq!(
+            "\u{1b}[96msome_string\u{1b}[0m",
+            styler.style("some_string")
+        );
+    }
+
+    #[test]
+    fn bg_color() {
+        let styler = Styler::build("", "yellow", false, false, "").unwrap();
+        assert_eq!(
+            "\u{1b}[43msome_string\u{1b}[0m",
+            styler.style("some_string")
+        );
+    }
+
+    #[test]
+    fn bold() {
+        let styler = Styler::build("", "", true, false, "").unwrap();
+        assert_eq!("\u{1b}[1msome_string\u{1b}[0m", styler.style("some_string"));
+    }
+
+    #[test]
+    fn undrline() {
+        let styler = Styler::build("", "", false, true, "").unwrap();
+        assert_eq!("\u{1b}[4msome_string\u{1b}[0m", styler.style("some_string"));
+    }
+
+    #[test]
+    fn all_in_style() {
+        let styler = Styler::build("red", "green", true, true, "").unwrap();
+        assert_eq!(
+            "\u{1b}[1;4;31;42msome_string\u{1b}[0m",
+            styler.style("some_string")
+        );
+    }
+
+    #[test]
+    fn regex() {
+        let styler = Styler::build("red", "green", true, true, "me_st").unwrap();
+        assert_eq!(
+            "so\u{1b}[1;4;31;42mme_st\u{1b}[0mring",
+            styler.style("some_string")
+        );
+    }
 }

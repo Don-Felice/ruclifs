@@ -1,5 +1,6 @@
 use crate::utils::cli::{print_line, proceed_query, Styler, INDENT};
 use crate::utils::file_sys::{get_files, UniquePathGetter};
+use anyhow::Result;
 use clap::builder::ArgAction;
 use clap::Args;
 use regex::Regex;
@@ -29,7 +30,7 @@ fn rename_file(
     dry_run: bool,
     match_styler: &Styler,
     path_getter: &UniquePathGetter,
-) -> Result<PathBuf, Box<dyn Error>> {
+) -> Result<PathBuf> {
     let file_name = path_file.file_name().unwrap().to_str().unwrap();
     let file_name_new = regex.replace_all(file_name, substitute).to_string();
     let styler_warning = Styler::build("yellow", "", false, false, "").unwrap();
@@ -73,7 +74,7 @@ pub fn rename(
     substitute: &str,
     recursive: bool,
     skip_preview: bool,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     let regex = Regex::new(pattern).unwrap_or_else(|err| {
         println!("Problem when compiling the regex pattern: {err}");
         process::exit(1)
