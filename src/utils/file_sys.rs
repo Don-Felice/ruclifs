@@ -1,5 +1,7 @@
 use glob::glob;
 use regex::Regex;
+use std::fs::File;
+use std::io::{self, BufRead};
 use std::path::{Path, PathBuf};
 use std::process;
 
@@ -108,6 +110,16 @@ impl UniquePathGetter {
             return path_in.to_path_buf();
         }
     }
+}
+
+// The output is wrapped in a Result to allow matching on errors.
+// Returns an Iterator to the Reader of the lines of the file.
+pub fn read_lines<P>(path_file: P) -> io::Result<io::Lines<io::BufReader<File>>>
+where
+    P: AsRef<Path>,
+{
+    let file = File::open(path_file)?;
+    Ok(io::BufReader::new(file).lines())
 }
 
 #[cfg(test)]

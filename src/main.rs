@@ -5,11 +5,16 @@ use std::process;
 use clap::{Parser, Subcommand};
 
 use crate::functions::rename::{rename, RenameArgs};
-use crate::functions::sed::SedArgs;
+use crate::functions::sed::{edit_files, SedArgs};
 use crate::functions::tree::{build_tree, TreeArgs};
 
 #[derive(Parser)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    author,
+    version,
+    about = "Rust-based command line interface for file system operations.",
+    long_about
+)]
 struct MainArgs {
     #[command(subcommand)]
     cmd: Commands,
@@ -23,6 +28,7 @@ enum Commands {
     Sed(SedArgs),
     // copy(CopyArgs),
     // delete(DeleteArgs),
+    ///Show a directory tree
     Tree(TreeArgs),
 }
 
@@ -34,7 +40,6 @@ fn main() {
 
     match &args.cmd {
         Commands::Ren(cmd_args) => {
-            println!("{:?}", cmd_args);
             if let Err(e) = rename(
                 &cmd_args.path,
                 &cmd_args.filter_string,
@@ -48,7 +53,13 @@ fn main() {
             }
         }
         Commands::Sed(cmd_args) => {
-            println!("{:?}", cmd_args)
+            edit_files(
+                &cmd_args.path_file.clone(),
+                &cmd_args.pattern.clone(),
+                &cmd_args.substitute.clone(),
+                cmd_args.overwrite,
+                cmd_args.recursive,
+            );
         }
         Commands::Tree(cmd_args) => {
             build_tree(&cmd_args.path, cmd_args.depth, !cmd_args.hide_size);

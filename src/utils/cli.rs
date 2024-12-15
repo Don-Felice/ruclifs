@@ -70,10 +70,16 @@ impl Styler {
 
         // get regex
         if pattern != "" {
-            let style_regex = Regex::new(&format!("({})", pattern)).unwrap_or_else(|err| {
-                println!("Problem when compiling the regex pattern: {err}");
-                process::exit(1)
-            });
+            let style_regex = match Regex::new(pattern) {
+                Ok(r) => r,
+                Err(err) => {
+                    return Err(anyhow!(
+                        "Error when trying to compile a regex from '{:?}':\n{}",
+                        pattern,
+                        err
+                    ));
+                }
+            };
             return Ok(Styler {
                 style_seq: style_seq.to_owned(),
                 reset_seq: String::from("\x1b[0m"),
@@ -92,7 +98,7 @@ impl Styler {
         match &self.regex {
             None => format!("{}{}{}", &self.style_seq, text, &self.reset_seq),
             Some(re) => re
-                .replace_all(text, format!("{}$1{}", &self.style_seq, &self.reset_seq))
+                .replace_all(text, format!("{}$0{}", &self.style_seq, &self.reset_seq))
                 .into_owned(),
         }
     }
