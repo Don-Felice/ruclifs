@@ -1,4 +1,4 @@
-use crate::utils::cli::{bites2str, Styler};
+use crate::utils::cli::{bites2str, AnsiColor, Styler};
 use clap::builder::ArgAction;
 use clap::Args;
 use std::env::current_dir;
@@ -19,11 +19,6 @@ pub struct TreeArgs {
     pub depth: i32,
     #[arg(short = 's', long = "hide_size", action=ArgAction::SetTrue)]
     pub hide_size: bool,
-}
-
-trait Size {
-    fn get_size(&self) -> i32;
-    //get size in bites
 }
 
 #[derive(Clone)]
@@ -258,8 +253,10 @@ pub fn build_tree(path: &PathBuf, th_depth: i32, show_size: bool) {
         _ => path.to_owned(),
     };
 
-    let styler_size = Styler::build("cyan", "", false, false, "").unwrap();
-    let styler_folder = Styler::build("yellow", "", false, false, "").unwrap();
+    let styler_size =
+        Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, false, "").unwrap();
+    let styler_folder =
+        Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "").unwrap();
 
     let mut root_dir = DirEntry::build(
         root_path.to_owned(),
@@ -280,7 +277,7 @@ pub fn build_tree(path: &PathBuf, th_depth: i32, show_size: bool) {
 
 #[cfg(test)]
 mod test_tree {
-    use crate::utils::cli::Styler;
+    use crate::utils::cli::{AnsiColor, Styler};
     use std::fs::{create_dir, File};
     use std::path::{Path, PathBuf};
     use tempfile::tempdir;
@@ -318,8 +315,10 @@ mod test_tree {
         let tempdir = tempdir().unwrap();
         let rootdir = set_up_dir(&tempdir.path());
 
-        let styler_size = Styler::build("", "", false, false, "").unwrap();
-        let styler_folder = Styler::build("", "", false, false, "").unwrap();
+        let styler_size =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+        let styler_folder =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
         // build tree
         let mut root_dir_entry = DirEntry::build(
             rootdir.to_owned(),
@@ -362,8 +361,10 @@ root_dir
         let tempdir = tempdir().unwrap();
         let rootdir = set_up_dir(&tempdir.path());
 
-        let styler_size = Styler::build("", "", false, false, "").unwrap();
-        let styler_folder = Styler::build("", "", false, false, "").unwrap();
+        let styler_size =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+        let styler_folder =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
         // build tree
         let mut root_dir_entry = DirEntry::build(
             rootdir.to_owned(),

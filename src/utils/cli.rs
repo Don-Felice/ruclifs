@@ -1,12 +1,45 @@
 use anyhow::{anyhow, Result};
 use regex::Regex;
 use std::io;
-use std::process;
 
 pub const INDENT: &str = "    ";
 
 pub fn print_line(text: &str) {
     println!("{:―^50}", text);
+}
+
+#[derive(PartialEq)]
+pub enum AnsiColor {
+    Cyan,
+    Green,
+    Gray,
+    Red,
+    Yellow,
+    Default,
+}
+
+impl AnsiColor {
+    fn apply_fg(&self, style: &mut Vec<&str>) {
+        match self {
+            AnsiColor::Cyan => style.push("96"),
+            AnsiColor::Green => style.push("32"),
+            AnsiColor::Gray => style.push("90"),
+            AnsiColor::Red => style.push("31"),
+            AnsiColor::Yellow => style.push("33"),
+            AnsiColor::Default => (),
+        }
+    }
+
+    fn apply_bg(&self, style: &mut Vec<&str>) {
+        match self {
+            AnsiColor::Cyan => style.push("46"),
+            AnsiColor::Green => style.push("42"),
+            AnsiColor::Gray => style.push("100"),
+            AnsiColor::Red => style.push("41"),
+            AnsiColor::Yellow => style.push("43"),
+            AnsiColor::Default => (),
+        }
+    }
 }
 
 pub struct Styler {
@@ -16,17 +49,14 @@ pub struct Styler {
 }
 impl Styler {
     pub fn build(
-        color_fg: &str,
-        color_bg: &str,
+        color_fg: &AnsiColor,
+        color_bg: &AnsiColor,
         bold: bool,
         underline: bool,
         pattern: &str,
     ) -> Result<Styler> {
         // do nothing if no options are chosen
-        if (color_fg == "" || color_fg == "default")
-            && (color_bg == "" || color_bg == "default")
-            && !bold
-            && !underline
+        if color_fg == &AnsiColor::Default && color_bg == &AnsiColor::Default && !bold && !underline
         {
             return Ok(Styler {
                 style_seq: String::from(""),
@@ -44,28 +74,13 @@ impl Styler {
             style.push("4");
         }
 
-        match color_fg {
-            "cyan" => style.push("96"),
-            "green" => style.push("32"),
-            "gray" => style.push("90"),
-            "red" => style.push("31"),
-            "yellow" => style.push("33"),
-            "" | "default" => (),
-            _ => return Err(anyhow!("Chosen color is not supported:{}", color_fg)),
-        };
+        // set foreground
+        color_fg.apply_fg(&mut style);
 
-        match color_bg {
-            "cyan" => style.push("46"),
-            "green" => style.push("42"),
-            "gray" => style.push("100"),
-            "red" => style.push("41"),
-            "yellow" => style.push("43"),
-            "" | "default" => (),
-            //_ => return Err(format!("Chosen color is not supported:{}", "cla" ).as_str()),
-            _ => return Err(anyhow!("Chosen color is not supported:{}", color_bg)),
-        };
+        // set background
+        color_bg.apply_bg(&mut style);
+
         let style_str = style.join(";");
-
         let style_seq = format!("\x1b[{}m", style_str);
 
         // get regex
@@ -156,17 +171,19 @@ pub fn bites2str(size: u64, styler: &Styler) -> String {
 #[cfg(test)]
 mod test_styler {
 
-    use super::Styler;
+    use super::{AnsiColor, Styler};
 
     #[test]
     fn do_nothing() {
-        let styler = Styler::build("", "", false, false, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
         assert_eq!("some_string", styler.style("some_string"));
     }
 
     #[test]
     fn fg_color() {
-        let styler = Styler::build("cyan", "", false, false, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, false, "").unwrap();
         assert_eq!(
             "\u{1b}[96msome_string\u{1b}[0m",
             styler.style("some_string")
@@ -175,7 +192,8 @@ mod test_styler {
 
     #[test]
     fn bg_color() {
-        let styler = Styler::build("", "yellow", false, false, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Yellow, false, false, "").unwrap();
         assert_eq!(
             "\u{1b}[43msome_string\u{1b}[0m",
             styler.style("some_string")
@@ -184,19 +202,21 @@ mod test_styler {
 
     #[test]
     fn bold() {
-        let styler = Styler::build("", "", true, false, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, true, false, "").unwrap();
         assert_eq!("\u{1b}[1msome_string\u{1b}[0m", styler.style("some_string"));
     }
 
     #[test]
     fn undrline() {
-        let styler = Styler::build("", "", false, true, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, true, "").unwrap();
         assert_eq!("\u{1b}[4msome_string\u{1b}[0m", styler.style("some_string"));
     }
 
     #[test]
     fn all_in_style() {
-        let styler = Styler::build("red", "green", true, true, "").unwrap();
+        let styler = Styler::build(&AnsiColor::Red, &AnsiColor::Green, true, true, "").unwrap();
         assert_eq!(
             "\u{1b}[1;4;31;42msome_string\u{1b}[0m",
             styler.style("some_string")
@@ -205,7 +225,8 @@ mod test_styler {
 
     #[test]
     fn regex() {
-        let styler = Styler::build("red", "green", true, true, "me_st").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Red, &AnsiColor::Green, true, true, "me_st").unwrap();
         assert_eq!(
             "so\u{1b}[1;4;31;42mme_st\u{1b}[0mring",
             styler.style("some_string")
@@ -216,7 +237,7 @@ mod test_styler {
 #[cfg(test)]
 mod test_bytes2str {
 
-    use super::{bites2str, Styler};
+    use super::{bites2str, AnsiColor, Styler};
 
     #[test]
     fn test_bytes2str() {
@@ -239,7 +260,8 @@ mod test_bytes2str {
             "14000.00 PB",
         ];
 
-        let styler = Styler::build("", "", false, false, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
 
         for it in inputs.iter().zip(exp_results.iter()) {
             let (input, exp_result) = it;

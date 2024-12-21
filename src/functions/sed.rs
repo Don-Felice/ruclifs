@@ -1,4 +1,4 @@
-use crate::utils::cli::Styler;
+use crate::utils::cli::{AnsiColor, Styler};
 use crate::utils::file_sys::read_lines;
 use anyhow::{anyhow, Result};
 use clap::builder::ArgAction;
@@ -60,7 +60,7 @@ impl StreamingEditor {
                 ));
             }
         };
-        let styler = Styler::build("cyan", "", false, true, &pattern)?;
+        let styler = Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, true, &pattern)?;
 
         return Ok(StreamingEditor {
             regex: regex,
@@ -158,7 +158,8 @@ pub fn edit_files(
     overwrite: bool,
     recursive: bool,
 ) {
-    let styler_error = Styler::build("red", "", false, false, "").unwrap();
+    let styler_error =
+        Styler::build(&AnsiColor::Red, &AnsiColor::Default, false, false, "").unwrap();
     let editor = match StreamingEditor::build(pattern.clone(), substitute.clone(), lines.clone()) {
         Ok(r) => r,
         Err(err) => {

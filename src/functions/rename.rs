@@ -1,4 +1,4 @@
-use crate::utils::cli::{print_line, proceed_query, Styler, INDENT};
+use crate::utils::cli::{print_line, proceed_query, AnsiColor, Styler, INDENT};
 use crate::utils::file_sys::{get_files, UniquePathGetter};
 use anyhow::Result;
 use clap::builder::ArgAction;
@@ -32,8 +32,10 @@ fn rename_file(
 ) -> Result<PathBuf> {
     let file_name = path_file.file_name().unwrap().to_str().unwrap();
     let file_name_new = regex.replace_all(file_name, substitute).to_string();
-    let styler_warning = Styler::build("yellow", "", false, false, "").unwrap();
-    let styler_grayed = Styler::build("gray", "", false, false, "").unwrap();
+    let styler_warning =
+        Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "").unwrap();
+    let styler_grayed =
+        Styler::build(&AnsiColor::Gray, &AnsiColor::Default, false, false, "").unwrap();
 
     if file_name_new != file_name {
         let file_name_color = match_styler.style(file_name);
@@ -78,7 +80,8 @@ pub fn rename(
         println!("Problem when compiling the regex pattern: {err}");
         process::exit(1)
     });
-    let match_styler = Styler::build("cyan", "", false, true, pattern).unwrap();
+    let match_styler =
+        Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, true, pattern).unwrap();
 
     // get file to rename
     let files = get_files(path, filter_string, recursive);
