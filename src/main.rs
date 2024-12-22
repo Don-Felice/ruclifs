@@ -58,6 +58,7 @@ fn main() {
                 &cmd_args.pattern.clone(),
                 &cmd_args.substitute.clone(),
                 &cmd_args.lines.clone(),
+                &cmd_args.preview_max,
                 cmd_args.overwrite,
                 cmd_args.recursive,
             );

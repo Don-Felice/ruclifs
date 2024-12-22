@@ -1,4 +1,4 @@
-use crate::utils::cli::{AnsiColor, Styler};
+use crate::utils::cli::{print_line, AnsiColor, Styler};
 use crate::utils::file_sys::read_lines;
 use anyhow::{anyhow, Result};
 use clap::builder::ArgAction;
@@ -7,7 +7,7 @@ use regex::Regex;
 use std::fs::{rename, File};
 use std::io::{LineWriter, Write};
 use std::ops::Range;
-use std::path::PathBuf;
+use std::path::{self, PathBuf};
 use std::process;
 
 #[derive(Args, Debug)]
@@ -19,6 +19,8 @@ pub struct SedArgs {
     pub substitute: String,
     #[arg(short = 'l', long = "lines", default_value = "")]
     pub lines: String,
+    #[arg(short = 'v', long = "preview_max", default_value_t = 3)]
+    pub preview_max: i32,
     #[arg(short = 'r', long = "recursive",action=ArgAction::SetTrue)]
     pub recursive: bool,
     #[arg(short = 'o', long = "overwrite",action=ArgAction::SetTrue)]
@@ -70,14 +72,45 @@ impl StreamingEditor {
         });
     }
 
-    fn edit(
-        &self,
-        path_file: &PathBuf,
-        max_previews: i32,
-        encoding: String,
-        overwrite: bool,
-        preview_mode: bool,
-    ) {
+    fn edit_preview(&self, path_file: &PathBuf, preview_max: &i32) {
+        print_line("PREVIEW");
+        let styler_path =
+            Styler::build(&AnsiColor::Gray, &AnsiColor::Default, false, false, "").unwrap();
+        println!("{}\n", styler_path.style(&path_file.to_str().unwrap()));
+        match read_lines(path_file) {
+            // Consumes the iterator, returns an (Optional) String
+            Ok(lines) => {
+                let mut match_count = 0;
+                for (n, line) in lines.flatten().enumerate() {
+                    let l = n + 1;
+                    let line_new = if self.lines.contains(&l) {
+                        self.regex.replace_all(&line, &self.substitute).to_string()
+                    } else {
+                        line.clone()
+                    };
+
+                    if line != line_new {
+                        match_count += 1;
+                        println!("l{} old: {}", l, &self.styler_match.style(&line));
+                        println!("l{} new: {}", l, &line_new);
+                        println!("");
+                    }
+
+                    if &match_count >= preview_max {
+                        break;
+                    }
+                }
+                print_line("END PREVIEW");
+            }
+            Err(e) => {
+                println!("Error when accessing the file: {e}");
+                process::exit(1);
+            }
+        }
+    }
+
+    fn edit(&self, path_file: &PathBuf, overwrite: bool) {
+        // TODO: currently there is also a newline added in the modified file if the last line of the file ends with EOF
         match read_lines(path_file) {
             // Consumes the iterator, returns an (Optional) String
             Ok(lines) => {
@@ -94,16 +127,14 @@ impl StreamingEditor {
 
                 for (n, line) in lines.flatten().enumerate() {
                     let l = n + 1;
-                    let mut line_new: String;
-                    if self.lines.contains(&l) {
-                        line_new = self.regex.replace_all(&line, &self.substitute).to_string();
+
+                    let mut line_new = if self.lines.contains(&l) {
+                        self.regex.replace_all(&line, &self.substitute).to_string()
                     } else {
-                        line_new = line.clone()
-                    }
+                        line.clone()
+                    };
                     line_new.push_str("\n");
 
-                    println!("l{} old: {}", l, &self.styler_match.style(&line));
-                    println!("l{} new: {}", l, &line_new);
                     file.write_all(line_new.as_bytes()).unwrap();
                 }
                 file.flush().unwrap();
@@ -155,6 +186,7 @@ pub fn edit_files(
     pattern: &String,
     substitute: &String,
     lines: &String,
+    preview_max: &i32,
     overwrite: bool,
     recursive: bool,
 ) {
@@ -168,7 +200,10 @@ pub fn edit_files(
             process::exit(1)
         }
     };
-    editor.edit(path_file, 3, String::from("UTF-8"), overwrite, true);
+    if preview_max > &0 {
+        editor.edit_preview(path_file, preview_max);
+    }
+    editor.edit(path_file, overwrite);
 }
 
 #[cfg(test)]
@@ -207,7 +242,7 @@ l3 some next next example line
             String::from(""),
         )
         .unwrap();
-        editor.edit(&path_file, 1, String::from("utf8"), true, false);
+        editor.edit(&path_file, true);
 
         let content_after = read_to_string(&path_file).unwrap();
 
@@ -232,7 +267,7 @@ l3 some (next) (next) (example) line
             String::from("1"),
         )
         .unwrap();
-        editor.edit(&path_file, 1, String::from("utf8"), true, false);
+        editor.edit(&path_file, true);
 
         let content_after = read_to_string(&path_file).unwrap();
 
@@ -257,7 +292,7 @@ l3 some next next example line
             String::from("1,3"),
         )
         .unwrap();
-        editor.edit(&path_file, 1, String::from("utf8"), true, false);
+        editor.edit(&path_file, true);
 
         let content_after = read_to_string(&path_file).unwrap();
 
@@ -282,7 +317,7 @@ l3 some (next) (next) (example) line
             String::from("2-3"),
         )
         .unwrap();
-        editor.edit(&path_file, 1, String::from("utf8"), true, false);
+        editor.edit(&path_file, true);
 
         let content_after = read_to_string(&path_file).unwrap();
 
