@@ -1,5 +1,5 @@
-use crate::utils::cli::{print_line, AnsiColor, Styler};
-use crate::utils::file_sys::read_lines;
+use crate::utils::cli::{print_line, proceed_query, AnsiColor, Styler};
+use crate::utils::file_sys::{read_lines, GetFilesArgs};
 use anyhow::{anyhow, Result};
 use clap::builder::ArgAction;
 use clap::Args;
@@ -7,12 +7,13 @@ use regex::Regex;
 use std::fs::{rename, File};
 use std::io::{LineWriter, Write};
 use std::ops::Range;
-use std::path::{self, PathBuf};
+use std::path::PathBuf;
 use std::process;
 
 #[derive(Args, Debug)]
 pub struct SedArgs {
-    pub path_file: std::path::PathBuf,
+    #[command(flatten)]
+    pub get_files_args: GetFilesArgs,
     #[arg(short = 'p', long = "pattern")]
     pub pattern: String,
     #[arg(short = 's', long = "substitute")]
@@ -21,8 +22,6 @@ pub struct SedArgs {
     pub lines: String,
     #[arg(short = 'v', long = "preview_max", default_value_t = 3)]
     pub preview_max: i32,
-    #[arg(short = 'r', long = "recursive",action=ArgAction::SetTrue)]
-    pub recursive: bool,
     #[arg(short = 'o', long = "overwrite",action=ArgAction::SetTrue)]
     pub overwrite: bool,
 }
@@ -72,15 +71,19 @@ impl StreamingEditor {
         });
     }
 
-    fn edit_preview(&self, path_file: &PathBuf, preview_max: &i32) {
-        print_line("PREVIEW");
-        let styler_path =
+    fn edit_preview(
+        &self,
+        path_file: &PathBuf,
+        preview_max: &i32,
+        mut match_count: i32,
+    ) -> Result<i32> {
+        let styler_dimmed =
             Styler::build(&AnsiColor::Gray, &AnsiColor::Default, false, false, "").unwrap();
-        println!("{}\n", styler_path.style(&path_file.to_str().unwrap()));
+        println!("{}", styler_dimmed.style(&path_file.to_str().unwrap()));
+        let match_count_file = match_count.clone();
         match read_lines(path_file) {
             // Consumes the iterator, returns an (Optional) String
             Ok(lines) => {
-                let mut match_count = 0;
                 for (n, line) in lines.flatten().enumerate() {
                     let l = n + 1;
                     let line_new = if self.lines.contains(&l) {
@@ -91,8 +94,8 @@ impl StreamingEditor {
 
                     if line != line_new {
                         match_count += 1;
-                        println!("l{} old: {}", l, &self.styler_match.style(&line));
-                        println!("l{} new: {}", l, &line_new);
+                        println!("  l{} old: {}", l, &self.styler_match.style(&line));
+                        println!("  l{} new: {}", l, &line_new);
                         println!("");
                     }
 
@@ -100,11 +103,17 @@ impl StreamingEditor {
                         break;
                     }
                 }
-                print_line("END PREVIEW");
+                if match_count == match_count_file {
+                    println!("{}\n", styler_dimmed.style("  --"));
+                }
+                return Ok(match_count);
             }
             Err(e) => {
-                println!("Error when accessing the file: {e}");
-                process::exit(1);
+                return Err(anyhow!(
+                    "Failed to read lines from file: \n {}. Error:\n{}",
+                    path_file.to_str().unwrap(),
+                    e
+                ))
             }
         }
     }
@@ -182,13 +191,12 @@ impl StreamingEditor {
 }
 
 pub fn edit_files(
-    path_file: &PathBuf,
+    file_paths: &Vec<PathBuf>,
     pattern: &String,
     substitute: &String,
     lines: &String,
     preview_max: &i32,
     overwrite: bool,
-    recursive: bool,
 ) {
     let styler_error =
         Styler::build(&AnsiColor::Red, &AnsiColor::Default, false, false, "").unwrap();
@@ -201,9 +209,29 @@ pub fn edit_files(
         }
     };
     if preview_max > &0 {
-        editor.edit_preview(path_file, preview_max);
+        print_line("PREVIEW");
+        let mut match_count = 0;
+        for file in file_paths.iter() {
+            match editor.edit_preview(file, preview_max, match_count) {
+                Ok(num_matches) => {
+                    match_count = num_matches;
+                    if &match_count >= preview_max {
+                        break;
+                    }
+                }
+                Err(err) => {
+                    println!("{}", styler_error.style("Looks like there was an issue:"));
+                    println!("{err}");
+                    process::exit(1)
+                }
+            };
+        }
+        print_line("END PREVIEW");
+        proceed_query("If you wanna apply the edits, give me a 'yes' or 'y' now:");
     }
-    editor.edit(path_file, overwrite);
+    for file in file_paths.iter() {
+        editor.edit(file, overwrite);
+    }
 }
 
 #[cfg(test)]

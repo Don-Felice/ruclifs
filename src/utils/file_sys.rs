@@ -1,3 +1,5 @@
+use crate::utils::cli::{AnsiColor, Styler};
+use clap::{ArgAction, Args};
 use glob::glob;
 use regex::Regex;
 use std::fs::File;
@@ -10,16 +12,50 @@ struct MockPaths {
     pub free: Vec<PathBuf>,
 }
 
-pub fn get_files(dir: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf> {
+#[derive(Args, Debug, Clone)]
+pub struct GetFilesArgs {
+    pub path: std::path::PathBuf,
+    #[arg(
+        short = 'g',
+        long = "glob_pattern",
+        default_value = "*",
+        help_heading = Some("Options - File selection"))]
+    pub glob_pattern: String,
+    #[arg(
+        short = 'r',
+        long = "recursive",
+        action=ArgAction::SetTrue,
+        help_heading = Some("Options - File selection"))]
+    pub recursive: bool,
+}
+
+pub fn get_files(path: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf> {
+    let mut files: Vec<PathBuf> = Vec::new();
+
+    if path.is_file() {
+        if (glob_pattern != "*") | recursive {
+            let styler_warning =
+                Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "").unwrap();
+            println!(
+                "{}",
+                styler_warning.style(
+                    "Warning: received a path to a file while \
+            a 'glob_pattern' or 'recursive' was specified. \
+            Will process the file from path only and ignore 'glob_pattern' and 'recursive'."
+                )
+            )
+        }
+        files.push(path.to_owned());
+        return files;
+    }
+
     let full_glob_pattern = if recursive == true {
-        PathBuf::from(dir).join("**")
+        PathBuf::from(path).join("**")
     } else {
-        PathBuf::from(dir)
+        PathBuf::from(path)
     };
 
     let full_glob_pattern = full_glob_pattern.join(glob_pattern);
-
-    let mut files: Vec<PathBuf> = Vec::new();
 
     for entry in glob(full_glob_pattern.to_str().unwrap()).expect("Failed to read glob pattern") {
         match entry {

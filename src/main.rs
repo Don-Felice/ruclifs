@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use crate::functions::rename::{rename, RenameArgs};
 use crate::functions::sed::{edit_files, SedArgs};
 use crate::functions::tree::{build_tree, TreeArgs};
+use crate::utils::file_sys::get_files;
 
 #[derive(Parser)]
 #[command(
@@ -24,7 +25,8 @@ struct MainArgs {
 enum Commands {
     ///Renaming files and so on
     Ren(RenameArgs),
-    ///Awesome Streaming editor
+    ///Awesome Streaming Editor
+    ///
     Sed(SedArgs),
     // copy(CopyArgs),
     // delete(DeleteArgs),
@@ -34,7 +36,7 @@ enum Commands {
 
 fn main() {
     let version: &str = "0.0.0";
-    println!("\x1b[90mThis is ruclifs version {version}\x1b[0m");
+    println!("\x1b[90mThis is ruclifs version {version}\x1b[0m\n");
 
     let args = MainArgs::parse();
 
@@ -53,14 +55,26 @@ fn main() {
             }
         }
         Commands::Sed(cmd_args) => {
+            let files = get_files(
+                &cmd_args.get_files_args.path,
+                &cmd_args.get_files_args.glob_pattern,
+                cmd_args.get_files_args.recursive,
+            );
+
+            if !(files.len() > 0) {
+                println!(
+                    "Found no files with the specified settings. Will abort here. See you soon!"
+                );
+                std::process::exit(0)
+            }
+
             edit_files(
-                &cmd_args.path_file.clone(),
+                &files,
                 &cmd_args.pattern.clone(),
                 &cmd_args.substitute.clone(),
                 &cmd_args.lines.clone(),
                 &cmd_args.preview_max,
                 cmd_args.overwrite,
-                cmd_args.recursive,
             );
         }
         Commands::Tree(cmd_args) => {
