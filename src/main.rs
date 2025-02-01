@@ -42,12 +42,17 @@ fn main() {
 
     match &args.cmd {
         Commands::Ren(cmd_args) => {
+            let files = get_files(
+                &cmd_args.get_files_args.path,
+                &cmd_args.get_files_args.glob_pattern,
+                cmd_args.get_files_args.recursive,
+                true,
+            );
+
             if let Err(e) = rename(
-                &cmd_args.path,
-                &cmd_args.filter_string,
+                &files,
                 &cmd_args.pattern,
                 &cmd_args.substitute,
-                cmd_args.recursive,
                 cmd_args.skip_preview,
             ) {
                 println!("Error when renaming: {e}");
@@ -59,14 +64,8 @@ fn main() {
                 &cmd_args.get_files_args.path,
                 &cmd_args.get_files_args.glob_pattern,
                 cmd_args.get_files_args.recursive,
+                true,
             );
-
-            if !(files.len() > 0) {
-                println!(
-                    "Found no files with the specified settings. Will abort here. See you soon!"
-                );
-                std::process::exit(0)
-            }
 
             edit_files(
                 &files,

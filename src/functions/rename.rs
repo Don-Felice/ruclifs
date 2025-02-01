@@ -1,5 +1,5 @@
 use crate::utils::cli::{print_line, proceed_query, AnsiColor, Styler, INDENT};
-use crate::utils::file_sys::{get_files, UniquePathGetter};
+use crate::utils::file_sys::{GetFilesArgs, UniquePathGetter};
 use anyhow::Result;
 use clap::builder::ArgAction;
 use clap::Args;
@@ -9,15 +9,12 @@ use std::process;
 
 #[derive(Args, Debug)]
 pub struct RenameArgs {
-    pub path: std::path::PathBuf,
-    #[arg(short = 'f', long = "filter", default_value_t=String::from("*"))]
-    pub filter_string: String,
+    #[command(flatten)]
+    pub get_files_args: GetFilesArgs,
     #[arg(short = 'p', long = "pattern")]
     pub pattern: String,
     #[arg(short = 's', long = "substitute")]
     pub substitute: String,
-    #[arg(short = 'r', long = "recursive", action=ArgAction::SetTrue)]
-    pub recursive: bool,
     #[arg(short = 'S', long = "skip_preview", action=ArgAction::SetTrue)]
     pub skip_preview: bool,
 }
@@ -72,11 +69,9 @@ fn rename_file(
 }
 
 pub fn rename(
-    path: &std::path::PathBuf,
-    filter_string: &str,
+    files: &Vec<PathBuf>,
     pattern: &str,
     substitute: &str,
-    recursive: bool,
     skip_preview: bool,
 ) -> Result<()> {
     let regex = Regex::new(pattern).unwrap_or_else(|err| {
@@ -87,14 +82,12 @@ pub fn rename(
         Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, true, pattern)
             .unwrap();
 
-    // get file to rename
-    let files = get_files(path, filter_string, recursive);
     println!("Renaming {} files:", files.len());
 
     if !skip_preview {
         let mut path_getter = UniquePathGetter::new();
         print_line("PREVIEW");
-        for file in &files {
+        for file in files {
             let path_new = rename_file(
                 file,
                 &regex,
@@ -114,7 +107,7 @@ pub fn rename(
     }
     print_line("");
     let path_getter = UniquePathGetter::new();
-    for file in &files {
+    for file in files {
         let _ =
             rename_file(file, &regex, substitute, false, &match_styler, &path_getter)?;
     }
@@ -126,6 +119,8 @@ pub fn rename(
 mod test_rename {
     use std::fs::{create_dir, File};
     use tempfile::tempdir;
+
+    use crate::utils::file_sys::get_files;
 
     use super::rename;
 
@@ -142,8 +137,8 @@ mod test_rename {
         let subdir = tempdir.path().join("subdir");
         create_dir(&subdir).unwrap();
         File::create(subdir.join("some_file.txt")).unwrap();
-
-        rename(&tempdir_path, "*", "some", "other", true, true).unwrap();
+        let files = get_files(&tempdir_path, "*", true, true);
+        rename(&files, "some", "other", true).unwrap();
 
         assert!(!tempdir_path.join("some_file.txt").is_file());
         assert!(tempdir_path.join("other_file.txt").is_file());
@@ -168,8 +163,8 @@ mod test_rename {
         let subdir = tempdir_path.join("subdir.txt");
         create_dir(&subdir).unwrap();
         File::create(subdir.join("some_file.txt")).unwrap();
-
-        rename(&tempdir_path, "*", "some", "other", false, true).unwrap();
+        let files = get_files(&tempdir_path, "*", false, true);
+        rename(&files, "some", "other", true).unwrap();
 
         assert!(!tempdir_path.join("some_file.txt").is_file());
         assert!(tempdir_path.join("other_file.txt").is_file());
@@ -190,7 +185,8 @@ mod test_rename {
         let file_path = tempdir.path().join("some_other_file.txt");
         File::create(file_path).unwrap();
 
-        rename(&tempdir_path, "*other*", "some", "other", true, true).unwrap();
+        let files = get_files(&tempdir_path, "*other*", true, true);
+        rename(&files, "some", "other", true).unwrap();
 
         assert!(tempdir_path.join("some_file.txt").is_file());
         assert!(!tempdir_path.join("other_file.txt").is_file());

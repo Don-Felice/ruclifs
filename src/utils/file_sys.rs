@@ -29,7 +29,12 @@ pub struct GetFilesArgs {
     pub recursive: bool,
 }
 
-pub fn get_files(path: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBuf> {
+pub fn get_files(
+    path: &Path,
+    glob_pattern: &str,
+    recursive: bool,
+    exit_if_empty: bool,
+) -> Vec<PathBuf> {
     let mut files: Vec<PathBuf> = Vec::new();
 
     if path.is_file() {
@@ -52,6 +57,10 @@ pub fn get_files(path: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBu
             )
         }
         files.push(path.to_owned());
+        if exit_if_empty & !(files.len() > 0) {
+            println!("No files found. Will abort here. See you soon!");
+            std::process::exit(0)
+        }
         return files;
     }
 
