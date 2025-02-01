@@ -33,7 +33,8 @@ fn rename_file(
     let file_name = path_file.file_name().unwrap().to_str().unwrap();
     let file_name_new = regex.replace_all(file_name, substitute).to_string();
     let styler_warning =
-        Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "").unwrap();
+        Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "")
+            .unwrap();
     let styler_grayed =
         Styler::build(&AnsiColor::Gray, &AnsiColor::Default, false, false, "").unwrap();
 
@@ -51,8 +52,9 @@ fn rename_file(
 
         if path_new != path_candidate {
             print_message.push_str(INDENT);
-            print_message
-                .push_str(&styler_warning.style("Warning: Path already exists, adding suffix."))
+            print_message.push_str(
+                &styler_warning.style("Warning: Path already exists, adding suffix."),
+            )
         }
 
         println!("{}", print_message);
@@ -61,7 +63,8 @@ fn rename_file(
         }
         return Ok(path_new);
     } else {
-        let printout = styler_grayed.style(format!("{} -> {}", file_name, file_name).as_str());
+        let printout =
+            styler_grayed.style(format!("{} -> {}", file_name, file_name).as_str());
 
         println!("{printout}");
         return Ok(path_file.to_path_buf());
@@ -81,7 +84,8 @@ pub fn rename(
         process::exit(1)
     });
     let match_styler =
-        Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, true, pattern).unwrap();
+        Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, true, pattern)
+            .unwrap();
 
     // get file to rename
     let files = get_files(path, filter_string, recursive);
@@ -91,8 +95,14 @@ pub fn rename(
         let mut path_getter = UniquePathGetter::new();
         print_line("PREVIEW");
         for file in &files {
-            let path_new =
-                rename_file(file, &regex, substitute, true, &match_styler, &path_getter)?;
+            let path_new = rename_file(
+                file,
+                &regex,
+                substitute,
+                true,
+                &match_styler,
+                &path_getter,
+            )?;
             // mock new file structure after renaming
             if &path_new != file {
                 path_getter.add_mock_taken(path_new);
@@ -105,7 +115,8 @@ pub fn rename(
     print_line("");
     let path_getter = UniquePathGetter::new();
     for file in &files {
-        let _ = rename_file(file, &regex, substitute, false, &match_styler, &path_getter)?;
+        let _ =
+            rename_file(file, &regex, substitute, false, &match_styler, &path_getter)?;
     }
     print_line("");
     Ok(())

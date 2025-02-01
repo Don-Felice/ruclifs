@@ -199,7 +199,8 @@ impl fmt::Display for FileEntry<'_> {
 
         if self.show_size {
             result.push_str(
-                format!(" {:6}", bites2str(self.size.unwrap(), self.styler_size,)).as_str(),
+                format!(" {:6}", bites2str(self.size.unwrap(), self.styler_size,))
+                    .as_str(),
             );
         }
 
@@ -256,7 +257,8 @@ pub fn build_tree(path: &PathBuf, th_depth: i32, show_size: bool) {
     let styler_size =
         Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, false, "").unwrap();
     let styler_folder =
-        Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "").unwrap();
+        Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "")
+            .unwrap();
 
     let mut root_dir = DirEntry::build(
         root_path.to_owned(),
@@ -316,9 +318,11 @@ mod test_tree {
         let rootdir = set_up_dir(&tempdir.path());
 
         let styler_size =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "")
+                .unwrap();
         let styler_folder =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "")
+                .unwrap();
         // build tree
         let mut root_dir_entry = DirEntry::build(
             rootdir.to_owned(),
@@ -362,9 +366,11 @@ root_dir
         let rootdir = set_up_dir(&tempdir.path());
 
         let styler_size =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "")
+                .unwrap();
         let styler_folder =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "")
+                .unwrap();
         // build tree
         let mut root_dir_entry = DirEntry::build(
             rootdir.to_owned(),

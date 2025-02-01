@@ -56,7 +56,10 @@ impl Styler {
         pattern: &str,
     ) -> Result<Styler> {
         // do nothing if no options are chosen
-        if color_fg == &AnsiColor::Default && color_bg == &AnsiColor::Default && !bold && !underline
+        if color_fg == &AnsiColor::Default
+            && color_bg == &AnsiColor::Default
+            && !bold
+            && !underline
         {
             return Ok(Styler {
                 style_seq: String::from(""),
@@ -176,14 +179,16 @@ mod test_styler {
     #[test]
     fn do_nothing() {
         let styler =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "")
+                .unwrap();
         assert_eq!("some_string", styler.style("some_string"));
     }
 
     #[test]
     fn fg_color() {
         let styler =
-            Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, false, "")
+                .unwrap();
         assert_eq!(
             "\u{1b}[96msome_string\u{1b}[0m",
             styler.style("some_string")
@@ -193,7 +198,8 @@ mod test_styler {
     #[test]
     fn bg_color() {
         let styler =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Yellow, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Yellow, false, false, "")
+                .unwrap();
         assert_eq!(
             "\u{1b}[43msome_string\u{1b}[0m",
             styler.style("some_string")
@@ -203,20 +209,23 @@ mod test_styler {
     #[test]
     fn bold() {
         let styler =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, true, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, true, false, "")
+                .unwrap();
         assert_eq!("\u{1b}[1msome_string\u{1b}[0m", styler.style("some_string"));
     }
 
     #[test]
     fn undrline() {
         let styler =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, true, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, true, "")
+                .unwrap();
         assert_eq!("\u{1b}[4msome_string\u{1b}[0m", styler.style("some_string"));
     }
 
     #[test]
     fn all_in_style() {
-        let styler = Styler::build(&AnsiColor::Red, &AnsiColor::Green, true, true, "").unwrap();
+        let styler =
+            Styler::build(&AnsiColor::Red, &AnsiColor::Green, true, true, "").unwrap();
         assert_eq!(
             "\u{1b}[1;4;31;42msome_string\u{1b}[0m",
             styler.style("some_string")
@@ -226,7 +235,8 @@ mod test_styler {
     #[test]
     fn regex() {
         let styler =
-            Styler::build(&AnsiColor::Red, &AnsiColor::Green, true, true, "me_st").unwrap();
+            Styler::build(&AnsiColor::Red, &AnsiColor::Green, true, true, "me_st")
+                .unwrap();
         assert_eq!(
             "so\u{1b}[1;4;31;42mme_st\u{1b}[0mring",
             styler.style("some_string")
@@ -261,7 +271,8 @@ mod test_bytes2str {
         ];
 
         let styler =
-            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Default, &AnsiColor::Default, false, false, "")
+                .unwrap();
 
         for it in inputs.iter().zip(exp_results.iter()) {
             let (input, exp_result) = it;

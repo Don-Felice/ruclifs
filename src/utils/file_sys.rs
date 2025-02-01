@@ -34,8 +34,14 @@ pub fn get_files(path: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBu
 
     if path.is_file() {
         if (glob_pattern != "*") | recursive {
-            let styler_warning =
-                Styler::build(&AnsiColor::Yellow, &AnsiColor::Default, false, false, "").unwrap();
+            let styler_warning = Styler::build(
+                &AnsiColor::Yellow,
+                &AnsiColor::Default,
+                false,
+                false,
+                "",
+            )
+            .unwrap();
             println!(
                 "{}",
                 styler_warning.style(
@@ -57,7 +63,9 @@ pub fn get_files(path: &Path, glob_pattern: &str, recursive: bool) -> Vec<PathBu
 
     let full_glob_pattern = full_glob_pattern.join(glob_pattern);
 
-    for entry in glob(full_glob_pattern.to_str().unwrap()).expect("Failed to read glob pattern") {
+    for entry in
+        glob(full_glob_pattern.to_str().unwrap()).expect("Failed to read glob pattern")
+    {
         match entry {
             Ok(file_path) => {
                 if file_path.is_file() {
@@ -119,7 +127,8 @@ impl UniquePathGetter {
                 Some(caps) => {
                     let cap = caps.get(1).unwrap().as_str();
                     name_count = cap.parse::<i32>().unwrap() + 1;
-                    file_stem_bare = self.num_regex.replace_all(file_stem_in, "").to_string();
+                    file_stem_bare =
+                        self.num_regex.replace_all(file_stem_in, "").to_string();
                 }
                 None => {
                     file_stem_bare = file_stem_in.to_owned();
@@ -138,7 +147,8 @@ impl UniquePathGetter {
                 && !self.mock_paths.free.contains(&path_out)
             {
                 name_count += 1;
-                file_name_new = file_stem_bare.clone() + &format!("_{}{}", name_count, file_ext);
+                file_name_new =
+                    file_stem_bare.clone() + &format!("_{}{}", name_count, file_ext);
                 path_out = path_in.parent().unwrap().join(&file_name_new);
             }
             return path_out;

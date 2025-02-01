@@ -50,7 +50,11 @@ impl LineSelection {
 }
 
 impl StreamingEditor {
-    fn build(pattern: String, substitute: String, lines: String) -> Result<StreamingEditor> {
+    fn build(
+        pattern: String,
+        substitute: String,
+        lines: String,
+    ) -> Result<StreamingEditor> {
         let regex = match Regex::new(&pattern) {
             Ok(r) => r,
             Err(err) => {
@@ -61,7 +65,13 @@ impl StreamingEditor {
                 ));
             }
         };
-        let styler = Styler::build(&AnsiColor::Cyan, &AnsiColor::Default, false, true, &pattern)?;
+        let styler = Styler::build(
+            &AnsiColor::Cyan,
+            &AnsiColor::Default,
+            false,
+            true,
+            &pattern,
+        )?;
 
         return Ok(StreamingEditor {
             regex: regex,
@@ -78,7 +88,8 @@ impl StreamingEditor {
         mut match_count: i32,
     ) -> Result<i32> {
         let styler_dimmed =
-            Styler::build(&AnsiColor::Gray, &AnsiColor::Default, false, false, "").unwrap();
+            Styler::build(&AnsiColor::Gray, &AnsiColor::Default, false, false, "")
+                .unwrap();
         println!("{}", styler_dimmed.style(&path_file.to_str().unwrap()));
         let match_count_file = match_count.clone();
         match read_lines(path_file) {
@@ -200,7 +211,11 @@ pub fn edit_files(
 ) {
     let styler_error =
         Styler::build(&AnsiColor::Red, &AnsiColor::Default, false, false, "").unwrap();
-    let editor = match StreamingEditor::build(pattern.clone(), substitute.clone(), lines.clone()) {
+    let editor = match StreamingEditor::build(
+        pattern.clone(),
+        substitute.clone(),
+        lines.clone(),
+    ) {
         Ok(r) => r,
         Err(err) => {
             println!("{}", styler_error.style("Looks like there was an issue:"));
@@ -220,7 +235,10 @@ pub fn edit_files(
                     }
                 }
                 Err(err) => {
-                    println!("{}", styler_error.style("Looks like there was an issue:"));
+                    println!(
+                        "{}",
+                        styler_error.style("Looks like there was an issue:")
+                    );
                     println!("{err}");
                     process::exit(1)
                 }
