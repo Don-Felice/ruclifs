@@ -5,6 +5,7 @@ use std::env::current_dir;
 use std::fmt;
 use std::fs::{self, metadata};
 use std::path::PathBuf;
+use std::process;
 
 const ELBOW: &str = "└── ";
 const TEE: &str = "├── ";
@@ -210,13 +211,18 @@ impl fmt::Display for FileEntry<'_> {
 
 impl fmt::Display for DirEntry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let mut result = format!(
-            "{}{}{}",
-            self.prefix,
-            self.connector,
-            self.styler_folder
-                .style(self.path.file_name().unwrap().to_str().unwrap()),
-        );
+        let mut result: String;
+        if let Some(folder_name) = self.path.file_name() {
+            result = format!(
+                "{}{}{}",
+                self.prefix,
+                self.connector,
+                self.styler_folder.style(folder_name.to_str().unwrap()),
+            );
+        } else {
+            println!("Error when trying to resolve path: {:?}", self.path);
+            process::exit(1);
+        }
 
         if self.show_size {
             let size_suffix: String;
